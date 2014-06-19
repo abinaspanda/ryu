@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#★ バイナリ～アスキー変換
 import binascii
 import inspect
 import json
