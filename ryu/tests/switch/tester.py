@@ -468,6 +468,7 @@ class OfTester(app_manager.RyuApp):
         # 2.description出力（ファイルにおける１つめのテストのみ）
         if description:
             【ログ出力】self.logger.info('%s', description)
+        # thread_msg を初期化（連続印加時に関連）
         self.thread_msg = None
 
 
@@ -562,6 +563,7 @@ class OfTester(app_manager.RyuApp):
                 # -----------------------------------------------------------------------
                 # Check a result.
                 #
+                # -----------------------------------
                 if KEY_EGRESS in pkt or KEY_PKT_IN in pkt:
                     #● STATE_FLOW_MATCH_CHK
                     # テスト結果を確認（期待通りか？）
@@ -577,19 +579,25 @@ class OfTester(app_manager.RyuApp):
                                      else KEY_PKT_IN)
                         self._test(STATE_NO_PKTIN_REASON, test_type,
                                    target_pkt_count, tester_pkt_count)
+                # -----------------------------------
                 elif KEY_THROUGHPUT in pkt:
                     # スループット用の統計を取得（テスター側のフロー）
                     end = self._test(STATE_GET_THROUGHPUT)
                     # テスト結果を確認＠_CHK
                     self._test(STATE_THROUGHPUT_CHK, pkt[KEY_THROUGHPUT],
                                start, end)
+                # -----------------------------------
                 elif KEY_TBL_MISS in pkt:
                     self._test(STATE_SEND_BARRIER)
                     hub.sleep(INTERVAL)
                     # テスト結果を確認＠マッチ回数ゼロであることを期待
                     self._test(STATE_FLOW_UNMATCH_CHK, before_stats, pkt)
 
+            # -----------------------------------------------------------------------
+            # テスト処理中に try catch ★ でエラー条件にひっかからなければココに到着
+            # result に TEST_OK　（'OK'）　を設定
             result = [TEST_OK]
+            # resultタイプ に TEST_OK　（'OK'）を設定
             result_type = TEST_OK
         except (TestFailure, TestError,
                 TestTimeout, TestReceiveError) as err:
@@ -599,6 +607,8 @@ class OfTester(app_manager.RyuApp):
             result = [TEST_ERROR, RYU_INTERNAL_ERROR]
             result_type = RYU_INTERNAL_ERROR
         finally:
+            # ingress_event をNoneに設定　意味は?★
+            # →ingress_eventはパケット連続送信時に活用
             self.ingress_event = None
             for tid in self.ingress_threads:
                 hub.kill(tid)
@@ -615,6 +625,7 @@ class OfTester(app_manager.RyuApp):
         hub.sleep(0)
         return result_type
 
+    # テスト終了H剃り
     def _test_end(self, msg=None, report=None):
         self.test_thread = None
         if msg:
@@ -624,6 +635,7 @@ class OfTester(app_manager.RyuApp):
         pid = os.getpid()
         os.kill(pid, signal.SIGTERM)
 
+    # テストレポート処理
     def _output_test_report(self, report):
         【ログ出力】self.logger.info('%s--- Test report ---', os.linesep)
         error_count = 0
@@ -639,6 +651,7 @@ class OfTester(app_manager.RyuApp):
                          TEST_OK, len(report.get(TEST_OK, [])),
                          TEST_ERROR, error_count)
 
+    # テスト処理（主にオープンフローメッセージの送信を司る）
     def _test(self, state, *args):
         test = {STATE_INIT_FLOW: self._test_initialize_flow,
                 STATE_INIT_THROUGHPUT_FLOW: self._test_initialize_flow,
@@ -713,24 +726,33 @@ class OfTester(app_manager.RyuApp):
         msg = self.rcv_msgs[0]
         assert isinstance(msg, ofproto_v1_3_parser.OFPBarrierReply)
 
-    # ★
+    # きちんと設定できているか確認する（フロー、METER、GROUP）
+    # 設定しようとしているモノ　＝　Statsで得られた結果
+    # を比較する。（この中で compare flow (フローエントリ比較) も利用される）
     def _test_exist_check(self, method, message):
+        #                        ↑swインスタンスの保持するメソッドを指定
+        # message は、preリクワジットに記載されているもの
+
+        # メソッド辞書を生成
         method_dict = {
+            # {フロー統計取得メソッド(sw)：{ reply:リプライクラス, compare:比較メソッド } }
             OpenFlowSw.send_flow_stats.__name__: {
                 'reply': ofproto_v1_3_parser.OFPFlowStatsReply,
                 'compare': self._compare_flow
             },
+            # {METER統計取得メソッド(sw)：{ reply:リプライクラス, compare:比較メソッド } }
             OpenFlowSw.send_meter_config_stats.__name__: {
                 'reply': ofproto_v1_3_parser.OFPMeterConfigStatsReply,
                 'compare': self._compare_meter
             },
+            # {GROUP統計取得メソッド(sw)：{ reply:リプライクラス, compare:比較メソッド } }
             OpenFlowSw.send_group_desc_stats.__name__: {
                 'reply': ofproto_v1_3_parser.OFPGroupDescStatsReply,
                 'compare': self._compare_group
             }
         }
-        xid = method()
         # １. メッセージ送信　＆　xidをアペンド
+        xid = method()
         self.send_msg_xids.append(xid)
 
         # ２. 待ち
@@ -739,15 +761,24 @@ class OfTester(app_manager.RyuApp):
         # ３. 結果を確認
         ng_stats = []
         for msg in self.rcv_msgs:
+            #　　　　　　　　　　↓4. msg が、期待しているリプライかどうかチェック
             assert isinstance(msg, method_dict[method.__name__]['reply'])
             for stats in msg.body:
+                #比較メソッドに　
+                #                           ↓メソッド名
                 result, stats = method_dict[method.__name__]['compare'](
+                #        ↑正常時はNone 異常時はエラーメッセージが返される
                     stats, message)
+                    #第一引数が、統計リプライそのもので、
+                    #第二引数が、期待するメッセージ（jsonに記述されているもの）
                 if result:
+                    #resultを返却
                     return
                 else:
                     ng_stats.append(stats)
 
+        #エラー辞書に追加
+        # → ng_stats の結果がすべてのキーに入る？？
         error_dict = {
             OpenFlowSw.send_flow_stats.__name__:
                 {'flows': ', '.join(ng_stats)},
@@ -756,6 +787,7 @@ class OfTester(app_manager.RyuApp):
             OpenFlowSw.send_group_desc_stats.__name__:
                 {'groups': ', '.join(ng_stats)}
         }
+        # raiseの意味は？★
         raise TestFailure(self.state, **error_dict[method.__name__])
 
     # ポートを取得して、結果を辞書型で返却
@@ -924,6 +956,7 @@ class OfTester(app_manager.RyuApp):
 
     # 連続パケット送信
     def _continuous_packet_send(self, pkt):
+        # ingress_event が None で　なかったら　エラー
         assert self.ingress_event is None
 
         # pkt辞書から様々な要素を取得
@@ -949,15 +982,27 @@ class OfTester(app_manager.RyuApp):
 
         try:
             #hub.Event()とは？★
+            # ingress_event に hub.Event()を格納
+            # →ingress_event に 値が存在
+            #  　→　連続印加中！
             self.ingress_event = hub.Event()
-            #パケットをスレッドで送信
+            #パケットをスレッドで送信（↓のメソッドへ）
             tid = hub.spawn(self._send_packet_thread, arg)
             #★ここら辺も
+            #hub.Event()
+            #hub.spawn()
+            #ingress_threads
+            #ingress_event
+            #thread_msg
             self.ingress_threads.append(tid)
+            #★ここら辺も
             self.ingress_event.wait(duration_time)
+            # thread_msg　＝　None　だったらraise処理
+            # raise★
             if self.thread_msg is not None:
                 raise self.thread_msg  # pylint: disable=E0702
         finally:
+            #stdout ★
             sys.stdout.write("\r\n")
             sys.stdout.flush()
 
@@ -968,6 +1013,8 @@ class OfTester(app_manager.RyuApp):
             return
 
         # display dots to express progress of sending packets
+        #stdout ★
+        #★
         if not arg['thread_counter'] % arg['dot_span']:
             sys.stdout.write(".")
             sys.stdout.flush()
@@ -976,30 +1023,42 @@ class OfTester(app_manager.RyuApp):
 
         # pile up float values and
         # use integer portion as the number of packets this thread sends
+
+        # packet_counter　は　パケットカウンター inc を追加していく
         arg['packet_counter'] += arg['packet_counter_inc']
         count = int(arg['packet_counter'])
+        # ★
         arg['packet_counter'] -= count
 
+        # インターバルだけhub.sleep★
         hub.sleep(CONTINUOUS_THREAD_INTVL)
 
+        # さらにサブスレッドを起こす？
         tid = hub.spawn(self._send_packet_thread, arg)
         self.ingress_threads.append(tid)
+        # スレッド切り替え？★　hub.sleep(0)
         hub.sleep(0)
+
+        # count回数だけ繰り返し
+
         for _ in range(count):
+            # randomize があるばあい
             if arg['randomize']:
+                #メッセージをあれこれする★→シリアライズ
                 msg = eval('/'.join(arg['packet_text']))
                 msg.serialize()
                 data = msg.data
             else:
                 data = arg['packet_binary']
             try:
-                #メッセージ送信
+                #メッセージ送信（テスターに対して送信）
                 self.tester_sw.send_packet_out(data)
             except Exception as err:
                 self.thread_msg = err
                 self.ingress_event.set()
                 break
 
+    #
     def _compare_flow(self, stats1, stats2):
 
         def __reasm_match(match):
