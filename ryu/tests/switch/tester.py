@@ -13,7 +13,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#★ バイナリ～アスキー変換
+
+#★ クラス一覧
+#class TestMessageBase(RyuException):
+# →テストメッセージの基底クラス
+#class TestFailure(TestMessageBase):
+#class TestTimeout(TestMessageBase):
+#class TestReceiveError(TestMessageBase):
+#class TestError(TestMessageBase):
+# →テスト失敗時のメッセージ
+#class OfTester(app_manager.RyuApp):
+# →アプリ本体。テストの実行機能を持つ。
+#class OpenFlowSw(object):
+# →OpenFlowスイッチを定義する。★object
+#class TestPatterns(dict):
+# →テストファイル全ての単位のインスタンス
+#class TestFile(stringify.StringifyMixin):
+# →テストファイル単体の単位のインスタンス
+#class Test(stringify.StringifyMixin):
+# →テスト１つ単位のインスタンス
+#class DummyDatapath(object):
+# →ダミーのスイッチインスタンス
+
+#★ TODO＠現状の課題点
+# Testerに関するやりとりで理解できていない点がある。
+# Testerソースの中で理解できていない点がある。
+# 　１。スループット
+# 　２。ゆらぎ
+# 　３。of14対応
+# Tester追加パッチの内容で理解できていない点がある。
+# Testerソースの中でどこが理解できていないか不明確。
+# Testerのテストファイルがどこまで用意されているか不明
+# GITの使い方に不明な点がある。
+# OpenFlow仕様書の内容を把握しきれていない
+#　→meter
+
+
+#★ インポート
 import binascii
 import inspect
 import json
@@ -76,6 +112,8 @@ from ryu.ofproto import ofproto_v1_3_parser
 """
 
 
+# CONFを取得
+# この処理の意味の確認が必要★
 CONF = cfg.CONF
 
 
@@ -256,31 +294,53 @@ class TestError(TestMessageBase):
 class OfTester(app_manager.RyuApp):
     """ OpenFlow Switch Tester. """
 
+    # 1.OpenFlowバージョンを定義
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self):
         super(OfTester, self).__init__()
+
+        # 2.ログを初期化
         self._set_logger()
 
+        # 3.ターゲットSW及びテスターSWのDatapathIDを取得
+        # →CONFから取得。ユーザ指定が無い場合はデフォルト値が設定される。
+        #   CONF ...  .conf的な位置づけ
         self.target_dpid = self._convert_dpid(CONF['test-switch']['target'])
         self.tester_dpid = self._convert_dpid(CONF['test-switch']['tester'])
-        self.logger.info('target_dpid=%s',
-                         dpid_lib.dpid_to_str(self.target_dpid))
-        self.logger.info('tester_dpid=%s',
-                         dpid_lib.dpid_to_str(self.tester_dpid))
-        test_dir = CONF['test-switch']['dir']
-        self.logger.info('Test files directory = %s', test_dir)
 
+        【ログ出力】self.logger.info('target_dpid=%s',
+                         dpid_lib.dpid_to_str(self.target_dpid))
+        【ログ出力】self.logger.info('tester_dpid=%s',
+                         dpid_lib.dpid_to_str(self.tester_dpid))
+        # 4.テストスイッチのディレクトリを指定。（何を指定？★）
+        test_dir = CONF['test-switch']['dir']
+        【ログ出力】self.logger.info('Test files directory = %s', test_dir)
+
+        # 5.ターゲットSW及びテスターSWのインスタンスを取得
+        #   →アプリ起動時はSWと接続中の可能性があるため、ダミーのインスタンスを
+        #　　　取得する。
         self.target_sw = OpenFlowSw(DummyDatapath(), self.logger)
         self.tester_sw = OpenFlowSw(DummyDatapath(), self.logger)
+        # 6.状態を　STATE_INIT_FLOW　に設定。
+        #　　→この状態はこのあと出てきた？★
         self.state = STATE_INIT_FLOW
+        # 7.sw_waiter および waiter を設定
+        # ★
         self.sw_waiter = None
+        # ★
         self.waiter = None
+        # 8.送信メッセージのxid保持用リストを初期化★
         self.send_msg_xids = []
+        # 9.受信メッセージ自体の保持用リストを初期化★
         self.rcv_msgs = []
+        # ★
         self.ingress_event = None
+        # ★
         self.ingress_threads = []
+        # ★
         self.thread_msg = None
+        # サブスレッドでテスト実行開始（test_thread　にスレッド？？が入る？★）
         self.test_thread = hub.spawn(
             self._test_sequential_execute, test_dir)
 
@@ -293,6 +353,7 @@ class OfTester(app_manager.RyuApp):
             self.logger.addHandler(f_hdlr)
 
     def _convert_dpid(self, dpid_str):
+        # DPIDの変換（16進数→INT）
         try:
             dpid = int(dpid_str, 16)
         except ValueError as err:
@@ -301,10 +362,13 @@ class OfTester(app_manager.RyuApp):
         return dpid
 
     def close(self):
+        # test_thread　に値が存在する→ kill
         if self.test_thread is not None:
             hub.kill(self.test_thread)
+        # ingress_event が True　→　set　何の意味？★
         if self.ingress_event:
             self.ingress_event.set()
+        # スレッドを配列に入れてjoinall
         hub.joinall([self.test_thread])
         self._test_end('--- Test terminated ---')
 
@@ -317,25 +381,32 @@ class OfTester(app_manager.RyuApp):
         elif ev.state == handler.DEAD_DISPATCHER:
             self._unregister_sw(ev.datapath)
 
+    # SW登録処理
     def _register_sw(self, dp):
+        # 1. データパスIDを設定
         if dp.id == self.target_dpid:
             self.target_sw.dp = dp
             msg = 'Join target SW.'
         elif dp.id == self.tester_dpid:
             self.tester_sw.dp = dp
+            # フローを設定
+            # →受信ポートにパケットが来たら、コントローラへ転送
             self.tester_sw.add_flow(
                 in_port=TESTER_RECEIVE_PORT,
                 out_port=dp.ofproto.OFPP_CONTROLLER)
             msg = 'Join tester SW.'
         else:
             msg = 'Connect unknown SW.'
-        if dp.id:
-            self.logger.info('dpid=%s : %s',
-                             dpid_lib.dpid_to_str(dp.id), msg)
 
+        if dp.id:
+            【ログ出力】self.logger.info('dpid=%s : %s',
+                             dpid_lib.dpid_to_str(dp.id), msg)
+        # 2. いずれかがダミーデータパスではない→どちらも接続OKだったら
         if not (isinstance(self.target_sw.dp, DummyDatapath) or
                 isinstance(self.tester_sw.dp, DummyDatapath)):
+            # sw_waiterが有数だったら★
             if self.sw_waiter is not None:
+                # sw_waiter.setを実行★
                 self.sw_waiter.set()
 
     def _unregister_sw(self, dp):
@@ -348,9 +419,10 @@ class OfTester(app_manager.RyuApp):
         else:
             msg = 'Disconnect unknown SW.'
         if dp.id:
-            self.logger.info('dpid=%s : %s',
+            【ログ出力】self.logger.info('dpid=%s : %s',
                              dpid_lib.dpid_to_str(dp.id), msg)
 
+    # テスト実行１
     def _test_sequential_execute(self, test_dir):
         """ Execute OpenFlow Switch test. """
         # Parse test pattern from test files.
@@ -360,7 +432,7 @@ class OfTester(app_manager.RyuApp):
             self._test_end()
 
         test_report = {}
-        self.logger.info('--- Test start ---')
+        【ログ出力】self.logger.info('--- Test start ---')
         test_keys = tests.keys()
         test_keys.sort()
         for file_name in test_keys:
@@ -370,6 +442,7 @@ class OfTester(app_manager.RyuApp):
                 test_report[result].extend(descriptions)
         self._test_end(msg='---  Test end  ---', report=test_report)
 
+    # テスト実行２
     def _test_file_execute(self, testfile):
         report = {}
         for i, test in enumerate(testfile.tests):
@@ -379,70 +452,122 @@ class OfTester(app_manager.RyuApp):
             report[result].append([testfile.description, test.description])
         return report
 
+    # テスト実行３
     def _test_execute(self, test, description):
+
+        # -----------------------------------------------------------------------
+        # 1.SWとの接続待ち●
         if isinstance(self.target_sw.dp, DummyDatapath) or \
                 isinstance(self.tester_sw.dp, DummyDatapath):
-            self.logger.info('waiting for switches connection...')
+            【ログ出力】self.logger.info('waiting for switches connection...')
             self.sw_waiter = hub.Event()
             self.sw_waiter.wait()
             self.sw_waiter = None
 
+        # -----------------------------------------------------------------------
+        # 2.description出力（ファイルにおける１つめのテストのみ）
         if description:
-            self.logger.info('%s', description)
+            【ログ出力】self.logger.info('%s', description)
         self.thread_msg = None
+
 
         # Test execute.
         try:
             # Initialize.
+            # -----------------------------------------------------------------------
+            # 3.初期化
+            # 　3-1.METER,GROUP,FLOW(ターゲット),FLOW(テスター＠クッキー指定)を削除
             self._test(STATE_INIT_METER)
             self._test(STATE_INIT_GROUP)
             self._test(STATE_INIT_FLOW, self.target_sw)
             self._test(STATE_INIT_THROUGHPUT_FLOW, self.tester_sw,
                        THROUGHPUT_COOKIE)
+
             # Install flows.
+            # -----------------------------------------------------------------------
+            # 4.prerequisiteに基づいてフローを設定
+            #　　prerequisiteの具体的なイメージを確認★
             for flow in test.prerequisite:
+                # flow には、バージョンに応じたクラスインスタンスが設定されている。
                 if isinstance(flow, ofproto_v1_3_parser.OFPFlowMod):
+                    # 1. フローのインストール（ターゲット）
+                    #● STATE_FLOW_INSTALL（設定）
                     self._test(STATE_FLOW_INSTALL, self.target_sw, flow)
+                    # 2. フローが正しく設定されたかチェック
+                    #● STATE_FLOW_EXIST_CHK（設定確認）
                     self._test(STATE_FLOW_EXIST_CHK,
                                self.target_sw.send_flow_stats, flow)
+                               #     ↑OpenFlowクラスのメソッド
                 elif isinstance(flow, ofproto_v1_3_parser.OFPMeterMod):
+                    #● STATE_METER_INSTALL（設定）
                     self._test(STATE_METER_INSTALL, self.target_sw, flow)
+                    #● STATE_METER_EXIST_CHK（設定確認）
                     self._test(STATE_METER_EXIST_CHK,
                                self.target_sw.send_meter_config_stats, flow)
+                               #     ↑OpenFlowクラスのメソッド
                 elif isinstance(flow, ofproto_v1_3_parser.OFPGroupMod):
+                    #● STATE_GROUP_INSTALL（設定）
                     self._test(STATE_GROUP_INSTALL, self.target_sw, flow)
+                    #● STATE_GROUP_EXIST_CHK（設定確認）
                     self._test(STATE_GROUP_EXIST_CHK,
                                self.target_sw.send_group_desc_stats, flow)
             # Do tests.
             for pkt in test.tests:
+                # ※テストとして期待する結果は
+                # 「スループット」「EGRESS（戻ってくる）」「パケットイン」
+                # 「マッチせず」の４パターン
+
+                # -----------------------------------------------------------------------
+                # 5.tests配列のpkt辞書にEGRESS or PKT_IN が含まれていた場合
 
                 # Get stats before sending packet(s).
+                #● STATE_TARGET_PKT_COUNT（ポート統計）
+                #● STATE_TESTER_PKT_COUNT（ポート統計）
                 if KEY_EGRESS in pkt or KEY_PKT_IN in pkt:
                     target_pkt_count = [self._test(STATE_TARGET_PKT_COUNT,
                                                    True)]
                     tester_pkt_count = [self._test(STATE_TESTER_PKT_COUNT,
                                                    False)]
+
+                # 或いは
+                # 5.tests配列のpkt辞書に KEY_THROUGHPUT が含まれていた場合
                 elif KEY_THROUGHPUT in pkt:
                     # install flows for throughput analysis
                     for throughput in pkt[KEY_THROUGHPUT]:
                         flow = throughput[KEY_FLOW]
+                        #● STATE_THROUGHPUT_FLOW_INSTALL（フロー設定）
                         self._test(STATE_THROUGHPUT_FLOW_INSTALL,
                                    self.tester_sw, flow)
+                        #● STATE_THROUGHPUT_FLOW_EXIST_CHK（設定確認）
+                        #● STATE_GET_THROUGHPUT（スループット取得）
+                        # 　→スループット用のフローの
+                        #     バイトカウント、パケットカウントを取得
                         self._test(STATE_THROUGHPUT_FLOW_EXIST_CHK,
                                    self.tester_sw.send_flow_stats, flow)
                     start = self._test(STATE_GET_THROUGHPUT)
+                # 或いは
+                # 5.tests配列のpkt辞書に KEY_TBL_MISS が含まれていた場合
                 elif KEY_TBL_MISS in pkt:
                     before_stats = self._test(STATE_GET_MATCH_COUNT)
 
+                # -----------------------------------------------------------------------
                 # Send packet(s).
+                # パケット送信＠１つ
                 if KEY_INGRESS in pkt:
                     self._one_time_packet_send(pkt)
+                # パケット送信＠複数
                 elif KEY_PACKETS in pkt:
                     self._continuous_packet_send(pkt)
 
+                # -----------------------------------------------------------------------
                 # Check a result.
+                #
                 if KEY_EGRESS in pkt or KEY_PKT_IN in pkt:
+                    #● STATE_FLOW_MATCH_CHK
+                    # テスト結果を確認（期待通りか？）
+                    # ＠パケットインが期待通りの　DPID、パケットイン理由、データ内容　であることを期待
                     result = self._test(STATE_FLOW_MATCH_CHK, pkt)
+                    # タイムアウト時処理
                     if result == TIMEOUT:
                         target_pkt_count.append(self._test(
                             STATE_TARGET_PKT_COUNT, True))
@@ -453,12 +578,15 @@ class OfTester(app_manager.RyuApp):
                         self._test(STATE_NO_PKTIN_REASON, test_type,
                                    target_pkt_count, tester_pkt_count)
                 elif KEY_THROUGHPUT in pkt:
+                    # スループット用の統計を取得（テスター側のフロー）
                     end = self._test(STATE_GET_THROUGHPUT)
+                    # テスト結果を確認＠_CHK
                     self._test(STATE_THROUGHPUT_CHK, pkt[KEY_THROUGHPUT],
                                start, end)
                 elif KEY_TBL_MISS in pkt:
                     self._test(STATE_SEND_BARRIER)
                     hub.sleep(INTERVAL)
+                    # テスト結果を確認＠マッチ回数ゼロであることを期待
                     self._test(STATE_FLOW_UNMATCH_CHK, before_stats, pkt)
 
             result = [TEST_OK]
@@ -477,9 +605,9 @@ class OfTester(app_manager.RyuApp):
             self.ingress_threads = []
 
         # Output test result.
-        self.logger.info('    %-100s %s', test.description, result[0])
+        【ログ出力】self.logger.info('    %-100s %s', test.description, result[0])
         if 1 < len(result):
-            self.logger.info('        %s', result[1])
+            【ログ出力】self.logger.info('        %s', result[1])
             if (result[1] == RYU_INTERNAL_ERROR
                     or result == 'An unknown exception'):
                 self.logger.error(traceback.format_exc())
@@ -490,24 +618,24 @@ class OfTester(app_manager.RyuApp):
     def _test_end(self, msg=None, report=None):
         self.test_thread = None
         if msg:
-            self.logger.info(msg)
+            【ログ出力】self.logger.info(msg)
         if report:
             self._output_test_report(report)
         pid = os.getpid()
         os.kill(pid, signal.SIGTERM)
 
     def _output_test_report(self, report):
-        self.logger.info('%s--- Test report ---', os.linesep)
+        【ログ出力】self.logger.info('%s--- Test report ---', os.linesep)
         error_count = 0
         for result_type in sorted(report.keys()):
             test_descriptions = report[result_type]
             if result_type == TEST_OK:
                 continue
             error_count += len(test_descriptions)
-            self.logger.info('%s(%d)', result_type, len(test_descriptions))
+            【ログ出力】self.logger.info('%s(%d)', result_type, len(test_descriptions))
             for file_desc, test_desc in test_descriptions:
-                self.logger.info('    %-40s %s', file_desc, test_desc)
-        self.logger.info('%s%s(%d) / %s(%d)', os.linesep,
+                【ログ出力】self.logger.info('    %-40s %s', file_desc, test_desc)
+        【ログ出力】self.logger.info('%s%s(%d) / %s(%d)', os.linesep,
                          TEST_OK, len(report.get(TEST_OK, [])),
                          TEST_ERROR, error_count)
 
@@ -540,30 +668,52 @@ class OfTester(app_manager.RyuApp):
         self.state = state
         return test[state](*args)
 
+    #　※基本的にメッセージ送信系の流れは
+    # 1　メッセージ送信　＆　send_msg_xidsにアペンド
+    # 2　待ち
+    # 3　rcv_msgsの結果確認
+    #　テスト実行毎に　上記の配列は初期化される。
+    #　
+    #　send_msg_xids
+    #　　→メッセージに対する応答返却時に、このxidを保持するメッセージのみ
+    #  　　rcv_msgsにアペンドする機構となっている。
+
+    # フロー消去
     def _test_initialize_flow(self, datapath, cookie=0):
+        # １. メッセージ送信　＆　xidをアペンド
         xid = datapath.del_flows(cookie)
         self.send_msg_xids.append(xid)
 
+        # １. メッセージ送信　＆　xidをアペンド
         xid = datapath.send_barrier_request()
         self.send_msg_xids.append(xid)
 
-        self._wait()
+        # ２. 待ち
+        self._wait() #-------------wait-------------
+
+        # ３. 結果を確認（メッセージが１つでない場合、エラー）
         assert len(self.rcv_msgs) == 1
         msg = self.rcv_msgs[0]
         assert isinstance(msg, ofproto_v1_3_parser.OFPBarrierReply)
 
+    # メッセージインストール
     def _test_msg_install(self, datapath, message):
+        # １. メッセージ送信　＆　xidをアペンド
         xid = datapath.send_msg(message)
         self.send_msg_xids.append(xid)
-
+        # １. メッセージ送信　＆　xidをアペンド
         xid = datapath.send_barrier_request()
         self.send_msg_xids.append(xid)
 
-        self._wait()
+        # ２. 待ち
+        self._wait() #-------------wait-------------
+
+        # ３. 結果を確認
         assert len(self.rcv_msgs) == 1
         msg = self.rcv_msgs[0]
         assert isinstance(msg, ofproto_v1_3_parser.OFPBarrierReply)
 
+    # ★
     def _test_exist_check(self, method, message):
         method_dict = {
             OpenFlowSw.send_flow_stats.__name__: {
@@ -580,9 +730,13 @@ class OfTester(app_manager.RyuApp):
             }
         }
         xid = method()
+        # １. メッセージ送信　＆　xidをアペンド
         self.send_msg_xids.append(xid)
-        self._wait()
 
+        # ２. 待ち
+        self._wait() #-------------wait-------------
+
+        # ３. 結果を確認
         ng_stats = []
         for msg in self.rcv_msgs:
             assert isinstance(msg, method_dict[method.__name__]['reply'])
@@ -604,33 +758,49 @@ class OfTester(app_manager.RyuApp):
         }
         raise TestFailure(self.state, **error_dict[method.__name__])
 
+    # ポートを取得して、結果を辞書型で返却
     def _test_get_packet_count(self, is_target):
         sw = self.target_sw if is_target else self.tester_sw
+        # １. ポート統計取得を送信　＆　xidをアペンド
         xid = sw.send_port_stats()
         self.send_msg_xids.append(xid)
-        self._wait()
+        # ２. 待ち
+        self._wait() #-------------wait-------------
         result = {}
+        # ３. result辞書に値を格納
+        # key 値
+        #  {1 :{ rx : xx, tx : xx } }
+        #  {2 :{ rx : xx, tx : xx } }
+        #        ・・・・
         for msg in self.rcv_msgs:
             for stats in msg.body:
                 result[stats.port_no] = {'rx': stats.rx_packets,
                                          'tx': stats.tx_packets}
         return result
 
+    # パケットイン（tester/taregetから）メッセージが期待通りのものかチェック
     def _test_flow_matching_check(self, pkt):
-        self.logger.debug("egress:[%s]", packet.Packet(pkt.get(KEY_EGRESS)))
-        self.logger.debug("packet_in:[%s]",
+        # 1.ログ出力
+        # EGRESS＝xxx PACKET_IN=xxx
+        【ログ出力】self.logger.debug("egress:[%s]", packet.Packet(pkt.get(KEY_EGRESS)))
+        【ログ出力】self.logger.debug("packet_in:[%s]",
                           packet.Packet(pkt.get(KEY_PKT_IN)))
 
         # receive a PacketIn message.
+        # 2.パケットインを受信するまで待つ（パケット送信に対する返却を期待）
+        #   →タイムアウト時は TIMEOUT を返却
         try:
-            self._wait()
+            self._wait() #-------------wait-------------
         except TestTimeout:
             return TIMEOUT
 
+        # 3.メッセージ長が１の場合assert
         assert len(self.rcv_msgs) == 1
+        # 4.メッセージ取得→パケットインでなければエラー
         msg = self.rcv_msgs[0]
         assert isinstance(msg, ofproto_v1_3_parser.OFPPacketIn)
-        self.logger.debug("dpid=%s : receive_packet[%s]",
+        # 5.ログ出力（DPID＝xxx）
+        【ログ出力】self.logger.debug("dpid=%s : receive_packet[%s]",
                           dpid_lib.dpid_to_str(msg.datapath.id),
                           packet.Packet(msg.data))
 
@@ -640,6 +810,10 @@ class OfTester(app_manager.RyuApp):
         model_pkt = (pkt[KEY_EGRESS] if KEY_EGRESS in pkt
                      else pkt[KEY_PKT_IN])
 
+        # 6.期待する結果と同じかチェック
+        #　　メッセージのDPIDは期待通りか？
+        #　　メッセージのパケットイン理由は期待通りか？
+        #　　メッセージのデータ内容は期待通りか？
         if msg.datapath.id != pkt_in_src_model.dp.id:
             pkt_type = 'packet-in'
             err_msg = 'SW[dpid=%s]' % dpid_lib.dpid_to_str(msg.datapath.id)
@@ -656,6 +830,7 @@ class OfTester(app_manager.RyuApp):
         raise TestFailure(self.state, pkt_type=pkt_type,
                           detail=err_msg)
 
+    #★
     def _test_no_pktin_reason_check(self, test_type,
                                     target_pkt_count, tester_pkt_count):
         before_target_receive = target_pkt_count[0][TARGET_RECEIVE_PORT]['rx']
@@ -684,58 +859,84 @@ class OfTester(app_manager.RyuApp):
 
         raise TestFailure(self.state, detail=log_msg)
 
+    # テーブルID毎に「検索の回数」「マッチ回数」を取得
     def _test_get_match_count(self):
+        # 1.table統計を送信（ターゲットSWに対して）
         xid = self.target_sw.send_table_stats()
+        # 2.送信済みxidリストにxidを追加
         self.send_msg_xids.append(xid)
-        self._wait()
+        self._wait() #-------------wait-------------
         result = {}
+        # 3.「検索の回数」「マッチ回数」を取得
         for msg in self.rcv_msgs:
             for stats in msg.body:
                 result[stats.table_id] = {'lookup': stats.lookup_count,
                                           'matched': stats.matched_count}
         return result
 
+    # バリア送信
     def _test_send_barrier(self):
         # Wait OFPBarrierReply.
+
+        # １. メッセージ送信　＆　xidをアペンド
         xid = self.tester_sw.send_barrier_request()
         self.send_msg_xids.append(xid)
-        self._wait()
+
+        # ２. 待ち
+        self._wait() #-------------wait-------------
+
+        # ３. 結果を確認
         assert len(self.rcv_msgs) == 1
         msg = self.rcv_msgs[0]
         assert isinstance(msg, ofproto_v1_3_parser.OFPBarrierReply)
 
+    # テーブルID毎に「検索の回数」「マッチ回数」を取得
     def _test_flow_unmatching_check(self, before_stats, pkt):
         # Check matched packet count.
+        # 1. テーブル統計（検索回数/マッチ回数)を取得
         rcv_msgs = self._test_get_match_count()
 
+        # 2. pkt辞書の　KEY_TBL_MISS　キー のvalueは
+        #    テーブルIDの辞書となっているため、ループさせる。
         lookup = False
         for target_tbl_id in pkt[KEY_TBL_MISS]:
+            # テーブルID xx の （検索回数/マッチ回数)を取得　(テスト前)
             before = before_stats[target_tbl_id]
+            # テーブルID xx の （検索回数/マッチ回数)を取得　(テスト後)
             after = rcv_msgs[target_tbl_id]
+            # 検索回数は　増えて　マッチ回数は　増えていない　ならTrueを設定
             if before['lookup'] < after['lookup']:
                 lookup = True
                 if before['matched'] < after['matched']:
                     raise TestFailure(self.state)
+        # lookupがFalse（検索回数が増えなかったり、マッチ回数が増えたり）
+        # した場合テストエラー
         if not lookup:
             raise TestError(self.state)
 
+
+    # パケットを送信（KEY_INGRESS定義のパケットを送信する）
     def _one_time_packet_send(self, pkt):
-        self.logger.debug("send_packet:[%s]", packet.Packet(pkt[KEY_INGRESS]))
+        # １. メッセージ送信　＆　xidをアペンド
+        【ログ出力】self.logger.debug("send_packet:[%s]", packet.Packet(pkt[KEY_INGRESS]))
         xid = self.tester_sw.send_packet_out(pkt[KEY_INGRESS])
         self.send_msg_xids.append(xid)
 
+    # 連続パケット送信
     def _continuous_packet_send(self, pkt):
         assert self.ingress_event is None
 
+        # pkt辞書から様々な要素を取得
         pkt_text = pkt[KEY_PACKETS]['packet_text']
         pkt_bin = pkt[KEY_PACKETS]['packet_binary']
         pktps = pkt[KEY_PACKETS][KEY_PKTPS]
         duration_time = pkt[KEY_PACKETS][KEY_DURATION_TIME]
         randomize = pkt[KEY_PACKETS]['randomize']
 
-        self.logger.debug("send_packet:[%s]", packet.Packet(pkt_bin))
-        self.logger.debug("pktps:[%d]", pktps)
-        self.logger.debug("duration_time:[%d]", duration_time)
+        【ログ出力】self.logger.debug("send_packet:[%s]", packet.Packet(pkt_bin))
+        【ログ出力】self.logger.debug("pktps:[%d]", pktps)
+        【ログ出力】self.logger.debug("duration_time:[%d]", duration_time)
+
 
         arg = {'packet_text': pkt_text,
                'packet_binary': pkt_bin,
@@ -747,8 +948,11 @@ class OfTester(app_manager.RyuApp):
                'randomize': randomize}
 
         try:
+            #hub.Event()とは？★
             self.ingress_event = hub.Event()
+            #パケットをスレッドで送信
             tid = hub.spawn(self._send_packet_thread, arg)
+            #★ここら辺も
             self.ingress_threads.append(tid)
             self.ingress_event.wait(duration_time)
             if self.thread_msg is not None:
@@ -757,6 +961,7 @@ class OfTester(app_manager.RyuApp):
             sys.stdout.write("\r\n")
             sys.stdout.flush()
 
+    # パケット連続送信
     def _send_packet_thread(self, arg):
         """ Send several packets continuously. """
         if self.ingress_event is None or self.ingress_event._cond:
@@ -788,6 +993,7 @@ class OfTester(app_manager.RyuApp):
             else:
                 data = arg['packet_binary']
             try:
+                #メッセージ送信
                 self.tester_sw.send_packet_out(data)
             except Exception as err:
                 self.thread_msg = err
@@ -910,14 +1116,19 @@ class OfTester(app_manager.RyuApp):
             return ('Encounter an error during packet comparison.'
                     ' it is malformed.')
 
+    # フロー統計（指定クッキーのみ）を取得
     def _test_get_throughput(self):
+        # １. メッセージ送信　＆　xidをアペンド
         xid = self.tester_sw.send_flow_stats()
         self.send_msg_xids.append(xid)
-        self._wait()
 
+        # ２. 待ち
+        self._wait() #-------------wait-------------
+
+        # ３. 結果を確認（統計を返却）
         assert len(self.rcv_msgs) == 1
         flow_stats = self.rcv_msgs[0].body
-        self.logger.debug(flow_stats)
+        【ログ出力】self.logger.debug(flow_stats)
         result = {}
         for stat in flow_stats:
             if stat.cookie != THROUGHPUT_COOKIE:
@@ -925,12 +1136,18 @@ class OfTester(app_manager.RyuApp):
             result[str(stat.match)] = (stat.byte_count, stat.packet_count)
         return (time.time(), result)
 
+    # スループットチェック
     def _test_throughput_check(self, throughputs, start, end):
         msgs = []
+        # 1 処理時間取得
         elapsed_sec = end[0] - start[0]
 
+        # 2 期待するスループットを取得
         for throughput in throughputs:
+            # 3 マッチを取得★
             match = str(throughput[KEY_FLOW].match)
+
+            # 2 期待するスループットを取得
             # get oxm_fields of OFPMatch
             fields = dict(throughput[KEY_FLOW].match._fields2)
 
@@ -956,9 +1173,9 @@ class OfTester(app_manager.RyuApp):
 
             expected_value = throughput[key] * elapsed_sec * conv
             margin = expected_value * THROUGHPUT_THRESHOLD
-            self.logger.debug("measured_value:[%s]", measured_value)
-            self.logger.debug("expected_value:[%s]", expected_value)
-            self.logger.debug("margin:[%s]", margin)
+            【ログ出力】self.logger.debug("measured_value:[%s]", measured_value)
+            【ログ出力】self.logger.debug("expected_value:[%s]", expected_value)
+            【ログ出力】self.logger.debug("margin:[%s]", margin)
             if math.fabs(measured_value - expected_value) > margin:
                 msgs.append('{0} {1:.2f}{2}'.format(fields,
                             measured_value / elapsed_sec / conv, unit))
@@ -966,6 +1183,7 @@ class OfTester(app_manager.RyuApp):
         if msgs:
             raise TestFailure(self.state, detail=', '.join(msgs))
 
+    # 待ち処理＠OFメッセージを受信するまで待ち続ける
     def _wait(self):
         """ Wait until specific OFP message received
              or timer is exceeded. """
@@ -1019,7 +1237,9 @@ class OfTester(app_manager.RyuApp):
                 [STATE_GROUP_EXIST_CHK]
         }
         if self.state in event_states[ev.__class__]:
+            # 送信済みxidに含まれている場合、rcv_msgsにアペンド
             if self.waiter and ev.msg.xid in self.send_msg_xids:
+                # rcv_msgsアペンド
                 self.rcv_msgs.append(ev.msg)
                 if not ev.msg.flags & ofproto_v1_3.OFPMPF_REPLY_MORE:
                     self.waiter.set()
@@ -1037,16 +1257,20 @@ class OfTester(app_manager.RyuApp):
                       STATE_GROUP_INSTALL,
                       STATE_SEND_BARRIER]
         if self.state in state_list:
+            # 送信済みxidに含まれている場合、rcv_msgsにアペンド
             if self.waiter and ev.msg.xid in self.send_msg_xids:
+                # rcv_msgsアペンド
                 self.rcv_msgs.append(ev.msg)
                 self.waiter.set()
                 hub.sleep(0)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, handler.MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
+        # パケットインの場合は、送信済みxid等は関係なし
         state_list = [STATE_FLOW_MATCH_CHK]
         if self.state in state_list:
             if self.waiter:
+                # rcv_msgsアペンド
                 self.rcv_msgs.append(ev.msg)
                 self.waiter.set()
                 hub.sleep(0)
@@ -1055,7 +1279,9 @@ class OfTester(app_manager.RyuApp):
                                              handler.CONFIG_DISPATCHER,
                                              handler.MAIN_DISPATCHER])
     def error_msg_handler(self, ev):
+        # 送信済みxidに含まれている場合、rcv_msgsにアペンド
         if ev.msg.xid in self.send_msg_xids:
+            # rcv_msgsアペンド
             self.rcv_msgs.append(ev.msg)
             if self.waiter:
                 self.waiter.set()
