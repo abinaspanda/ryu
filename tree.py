@@ -5,8 +5,8 @@
 │   ├── MANIFEST.in
 │   ├── README.rst
 │   ├── bin
-│   │   ├── ryu # ★
-│   │   └── ryu-manager # ★
+│   │   ├── ryu # ★ 確認中
+│   │   └── ryu-manager # ★ 確認中
 │   ├── debian
 │   │   ├── changelog
 │   │   ├── clean
@@ -136,7 +136,7 @@
 │   │   │   └── ryu_base.py# ★
 │   │   ├── contrib
 │   │   │   ├── __init__.py
-│   │   │   ├── _eventlet# ★
+│   │   │   ├── _eventlet# ★ 確認中
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── websocket.py
 │   │   │   ├── ncclient
@@ -215,12 +215,12 @@
 │   │   │   ├── controller.py# ★
 │   │   │   ├── dpset.py# ★
 │   │   │   ├── event.py# ★
-│   │   │   ├── handler.py# ★
+│   │   │   ├── handler.py# ★重要
 │   │   │   ├── mac_to_network.py
 │   │   │   ├── mac_to_port.py
 │   │   │   ├── network.py# ★
-│   │   │   ├── ofp_event.py
-│   │   │   ├── ofp_handler.py
+│   │   │   ├── ofp_event.py# ★ 確認中
+│   │   │   ├── ofp_handler.py# ★ 確認中
 │   │   │   └── tunnels.py
 │   │   ├── exception.py
 │   │   ├── flags.py
@@ -229,7 +229,7 @@
 │   │   │   ├── __init__.py
 │   │   │   ├── addrconv.py
 │   │   │   ├── dpid.py# ★
-│   │   │   ├── hub.py# ★
+│   │   │   ├── hub.py# ★ 確認中
 │   │   │   ├── igmplib.py
 │   │   │   ├── ip.py
 │   │   │   ├── lacplib.py
