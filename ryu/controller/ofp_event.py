@@ -39,19 +39,35 @@ class EventOFPMsgBase(event.EventBase):
 _OFP_MSG_EVENTS = {}
 
 
+# ----------------------------------------------------------
+# 概要＠イベントクラス（msgを入れてあげるとイベント（人が理解可能な
+#　　　　形に変換してくれるクラス）に変換してくれるクラス
+# 　1.メッセージクラス名（_ofp_msg_name_to_ev_nameで取得）
+#　　　　に応じたイベントを取得
+# 　２.イベントにmsg引数を与えて処理を実施
+
+
+# メッセージ名をイベント名に変換する
+#　→メッセージ名に Event 文字列　を先頭追加
 def _ofp_msg_name_to_ev_name(msg_name):
     return 'Event' + msg_name
 
-
+# メッセージをイベントに変換する（引数：メッセージ）
+#　↓のofp_msg_to_ev_clsを呼び出す
 def ofp_msg_to_ev(msg):
     return ofp_msg_to_ev_cls(msg.__class__)(msg)
 
-
+# メッセージをイベントクラスに変換する（引数：メッセージクラス）
 def ofp_msg_to_ev_cls(msg_cls):
     name = _ofp_msg_name_to_ev_name(msg_cls.__name__)
     return _OFP_MSG_EVENTS[name]
 
 
+# ----------------------------------------------------------
+# 概要＠イベントクラスの作成部
+#
+
+#　イベントクラス生成（内部メソッド）
 def _create_ofp_msg_ev_class(msg_cls):
     name = _ofp_msg_name_to_ev_name(msg_cls.__name__)
     # print 'creating ofp_event %s' % name
@@ -65,7 +81,7 @@ def _create_ofp_msg_ev_class(msg_cls):
     globals()[name] = cls
     _OFP_MSG_EVENTS[name] = cls
 
-
+#　イベントクラス生成（内部メソッド）
 def _create_ofp_msg_ev_from_module(ofp_parser):
     # print mod
     for _k, cls in inspect.getmembers(ofp_parser, inspect.isclass):
@@ -73,10 +89,22 @@ def _create_ofp_msg_ev_from_module(ofp_parser):
             continue
         _create_ofp_msg_ev_class(cls)
 
+#　イベントクラス生成のトリガ
+
+#def get_ofp_modules():
+    #"""get modules pair for the constants and parser of OF-wire of
+    #a given OF version.
+    #"""
+    #return ofproto_protocol._versions
+    #
+    # ofproto_protocol._versions.values():
+    #　→RYUが対応しているバージョンの　値　（orproto ofparser）　を種尾T区
 
 for ofp_mods in ofproto.get_ofp_modules().values():
     ofp_parser = ofp_mods[1]
+    # 1. RYU が対応している　of_parser を順番に取得
     # print 'loading module %s' % ofp_parser
+    # 2. parserを引数として↓のメソッドに渡す
     _create_ofp_msg_ev_from_module(ofp_parser)
 
 

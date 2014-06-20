@@ -480,6 +480,7 @@ class OfTester(app_manager.RyuApp):
 
         # -----------------------------------------------------------------------
         # 1.SWとの接続待ち●
+        # 　※SW接続が完了していなかった場合
         if isinstance(self.target_sw.dp, DummyDatapath) or \
                 isinstance(self.tester_sw.dp, DummyDatapath):
             【ログ出力】self.logger.info('waiting for switches connection...')
@@ -1214,28 +1215,34 @@ class OfTester(app_manager.RyuApp):
         # 1. msgを初期化
         msg = []
         # 2. 受信パケットを順番に解析
-        #　　→protocolsリストにrcv_pktに含まれるプロトコル一覧が入っている
+        #　　→protocolsリストには、Packetインスタンス化時に格納された
+        #　　　rcv_pktに含まれるプロトコル一覧が入っている
         for rcv_p in rcv_pkt.protocols:
             # rcv_p 任意のプロトコル
-            # model_protocols xxx
-            # ★↑確認要＠rcv_pktの構造
             # プロトコルのタイプが 文字列　でないばあい
+            #　→すなわち、パケットライブラリに存在するプロトコルの場合
             if type(rcv_p) != str:
-                # get_protocolsメソッドから　タイプに応じた
-                #  model_protocolsをもらう
+                # 今度はモデルパケット側から、同じタイプのプロトコルインスタンスを取得する
+                # 　→　取得結果＝model_protocols
                 model_protocols = model_pkt.get_protocols(type(rcv_p))
                 # model_protocolsの長さが　１　だったら
                 if len(model_protocols) == 1:
-                    # [0]のみを取得
+                    # 長さは１なので、当然[0]のみを取得
                     model_p = model_protocols[0]
+                    # diffを空リストで定義
                     diff = []
+                    # プロトコルインスタンス辞書　をループ処理
                     for attr in rcv_p.__dict__:
+                        # _ で始まっている場合(隠蔽)は　ループ継続
                         if attr.startswith('_'):
                             continue
+                        # 呼び出し可能なら　継続（通常）
                         if callable(attr):
-                            continue
+                            continue#               ↓受信パケットの属性★
                         if hasattr(rcv_p.__class__, attr):
                             continue
+                        # attr が  rcv_p.__class__ に存在するかチェック
+                        # 比較処理を実施（文字列化）
                         rcv_attr = repr(getattr(rcv_p, attr))
                         model_attr = repr(getattr(model_p, attr))
                         if rcv_attr != model_attr:
@@ -1244,20 +1251,30 @@ class OfTester(app_manager.RyuApp):
                         msg.append('%s(%s)' %
                                    (rcv_p.__class__.__name__,
                                     ','.join(diff)))
+                # 取得できなかった場合（長さが　２　のときは考慮しない）
                 else:
-                    # model_protocols が None　或いは
-                    # model_protocols の中に　rcv_pが存在しない場合
+                    # 入手値 が None　或いは
+                    # 入手値（str化） の中に　str(rcv_p)が存在しない場合
+                    #　→要は、受信したパケットに含まれるプロトコルが
+                    #　　期待プロトコルに存在しない場合にメッセージにアペンド
                     if (not model_protocols or
                             not str(rcv_p) in str(model_protocols)):
                         msg.append(str(rcv_p))
+            #　→すなわち、パケットライブラリに存在しないプロトコルの場合
             else:
                 model_p = ''
+                # モデルパケットのプロトコルを回して、
                 for p in model_pkt.protocols:
+                    # strのタイプを見つけたら、
+                    # ★モデルパケットのプロトコルの最初のプロトコルのみ、常に検索されるのでは？
                     if type(p) == str:
+                        # model_pに入れる
                         model_p = p
                         break
+                # ちがったら、メッセージにアペンド
                 if model_p != rcv_p:
                     msg.append('str(%s)' % repr(rcv_p))
+        # msgをリターン（エラー有無に関わらず）
         if msg:
             return '/'.join(msg)
         else:
@@ -1583,6 +1600,10 @@ class TestPatterns(dict):
     def __init__(self, test_dir, logger):
         super(TestPatterns, self).__init__()
         self.logger = logger
+        #テストパターンのインスタンス時にget_testを呼ぶ
+        #　→　テストファイルがインスタンス化
+        #　　→　テスト　もインスタンス化
+        #　　　　→　このときにパース処理も同時実行される。
         # Parse test pattern from test files.
         self._get_tests(test_dir)
 
@@ -1612,17 +1633,23 @@ class TestFile(stringify.StringifyMixin):
         self.logger = logger
         self.description = None
         self.tests = []
+        # TestFileインスタンス化時にテスト取得も実施
         self._get_tests(path)
 
     def _get_tests(self, path):
+        # path を元にファイルオープン
         with open(path, 'rb') as fhandle:
             buf = fhandle.read()
             try:
+                # jsonファイルのリストを取得
                 json_list = json.loads(buf)
                 for test_json in json_list:
                     if isinstance(test_json, unicode):
+                        # テストファイルのデスク利付書んを取得
                         self.description = test_json
                     else:
+                        # テスト一覧（リスト）にパースしたテストインスタンスを
+                        # 格納する
                         self.tests.append(Test(test_json))
             except (ValueError, TypeError) as e:
                 result = (TEST_FILE_ERROR %
@@ -1631,8 +1658,10 @@ class TestFile(stringify.StringifyMixin):
 
 
 class Test(stringify.StringifyMixin):
+    # 初期化
     def __init__(self, test_json):
         super(Test, self).__init__()
+        # 初期化時にテストのパース（jsonの読み込み）藻実施
         (self.description,
          self.prerequisite,
          self.tests) = self._parse_test(test_json)

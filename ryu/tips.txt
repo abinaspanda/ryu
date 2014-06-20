@@ -1,0 +1,50 @@
+■インストール手順
+
+./boot.sh 
+./configure --with-linux=/lib/modules/`uname -r`/build
+make
+sudo make install
+sudo make modules_install
+sudo modprobe
+sudo modprobe openvswitch
+lsmod
+sudo rm /usr/local/etc/openvswitch/conf.db /usr/local/etc/openvswitch/.conf.db.~lock~ 
+sudo ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
+
+■再インストール手順
+
+アップグレード
+リブート
+インストールフォルダに移動
+sudo make uninstall
+
+./configure --with-linux=/lib/modules/`uname -r`/build
+make
+sudo make install
+sudo make modules_install
+sudo modprobe openvswitch
+lsmod
+sudo rm /usr/local/etc/openvswitch/conf.db /usr/local/etc/openvswitch/.conf.db.~lock~ 
+sudo ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
+ls /usr/local/etc/openvswitch/
+
+■最初の設定
+sudo ovs-vsctl add-br s1
+sudo ovs-vsctl show
+sudo ovs-vsctl add-port s1 lo
+sudo ovs-vsctl set-controller s1 tcp:127.0.0.1:6633
+
+■RYUの起動
+ryu-manager --verbose ryu.app.simple_switch_13
+sudo ovs-ofctl -O OpenFlow13 dump-flows s1
+
+■ミニネットの起動
+sudo mn --topo single,2 --mac --switch ovsk --controller remote -x
+→OFS１台、ホスト２台、OVS
+
+sudo ovs-vsctl set Bridge s1 protocols=OpenFlow13
+sudo ovs-vsctl show
+sudo ovs-ofctl -O OpenFlow13 dump-flows s1
+
+
+

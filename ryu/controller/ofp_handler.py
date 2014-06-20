@@ -45,10 +45,12 @@ from ryu.controller.handler import HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER,\
 # Note that at any state, when we receive Echo Request message, send
 # back Echo Reply message.
 
-
+#OFPハンドラ
 class OFPHandler(ryu.base.app_manager.RyuApp):
+    #　初期化
     def __init__(self, *args, **kwargs):
         super(OFPHandler, self).__init__(*args, **kwargs)
+        #　name は'ofp_event'
         self.name = 'ofp_event'
 
     def start(self):
@@ -63,11 +65,17 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
         error_msg.data = error_desc
         datapath.send_msg(error_msg)
 
+    # Hello時のハンドラ
     @set_ev_handler(ofp_event.EventOFPHello, HANDSHAKE_DISPATCHER)
     def hello_handler(self, ev):
         self.logger.debug('hello ev %s', ev)
+        # 1.イベントからメッセージ取得
         msg = ev.msg
+        # 2.メッセージからデータパス取得（msg.data とかもある）
         datapath = msg.datapath
+
+        # 3.msgに elements 属性があるかチェック
+        #  　※無ければ none を返す
 
         # check if received version is supported.
         # pre 1.0 is not supported
