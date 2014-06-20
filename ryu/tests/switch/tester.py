@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-#★ クラス一覧
+# クラス一覧
 #class TestMessageBase(RyuException):
 # →テストメッセージの基底クラス
 #class TestFailure(TestMessageBase):
@@ -25,7 +25,7 @@
 #class OfTester(app_manager.RyuApp):
 # →アプリ本体。テストの実行機能を持つ。
 #class OpenFlowSw(object):
-# →OpenFlowスイッチを定義する。★object
+# →OpenFlowスイッチを定義する。
 #class TestPatterns(dict):
 # →テストファイル全ての単位のインスタンス
 #class TestFile(stringify.StringifyMixin):
@@ -35,7 +35,7 @@
 #class DummyDatapath(object):
 # →ダミーのスイッチインスタンス
 
-#★ TODO＠現状の課題点
+# TODO＠現状の課題点
 # Testerに関するやりとりで理解できていない点がある。
 # Testerソースの中で理解できていない点がある。
 # 　１。スループット
@@ -49,7 +49,7 @@
 #　→meter
 
 
-#★ インポート
+# インポート
 import binascii
 import inspect
 import json
@@ -115,6 +115,25 @@ from ryu.ofproto import ofproto_v1_3_parser
 
 """
 
+# 1. コマンドライン或いはCONFからターゲットバージョン取得
+#+        target_opt = CONF['test-switch']['target_version']
+# 2. VERSION変数を取得
+#+        OfTester.target_ver = __get_version(target_opt)
+
+# 1. コマンドライン或いはCONFからテスターバージョン取得
+#+        tester_opt = CONF['test-switch']['tester_version']
+# 2. VERSION変数を取得
+#+        OfTester.tester_ver = __get_version(tester_opt)
+
+# 1. OFTesterとして対応するバージョンを設定（1.3 or 1.4 とか）
+#+        OfTester.OFP_VERSIONS = [OfTester.target_ver, OfTester.tester_ver]
+# 2. アプリのサポートバージョンをリセット
+#+        # reset app_supported_versions
+#+        ofproto_protocol._supported_versions = set(
+#+            ofproto_protocol._versions.keys())
+# 3. サポートバージョンを上書き
+#+        # overwrite app_supported_versions
+#+        ofproto_protocol.set_app_supported_versions(OfTester.OFP_VERSIONS)
 
 # CONFを取得
 # この処理の意味の確認が必要★
@@ -276,7 +295,7 @@ class TestMessageBase(RyuException):
 
 # テスト失敗時のメッセージ
 class TestFailure(TestMessageBase):
-    #**argv★
+    #**argv　文字列を受けとるときに利用
     def __init__(self, state, **argv):
         super(TestFailure, self).__init__(state, FAILURE, **argv)
         #                                           ↑メッセージタイプはFAILURE
@@ -1053,8 +1072,7 @@ class OfTester(app_manager.RyuApp):
             return
 
         # display dots to express progress of sending packets
-        #stdout ★
-        #★
+        # stdout →標準出力
         if not arg['thread_counter'] % arg['dot_span']:
             sys.stdout.write(".")
             sys.stdout.flush()
@@ -1478,19 +1496,25 @@ class OfTester(app_manager.RyuApp):
                 self.waiter.set()
                 hub.sleep(0)
 
-
+#OpenFlowスイッチを定義する際のクラス
 class OpenFlowSw(object):
     def __init__(self, dp, logger):
         super(OpenFlowSw, self).__init__()
+        # 引数指定のデータパスを設定
+        # （通常はデフォルト値が設定される）
         self.dp = dp
         self.logger = logger
 
+    # メッセージを送信
     def send_msg(self, msg):
+        # ダミーデータパスの場合はエラー出力
         if isinstance(self.dp, DummyDatapath):
             raise TestError(STATE_DISCONNECTED)
+        # xidを設定(datapathクラスのメソッドを利用）
         msg.xid = None
         self.dp.set_xid(msg)
         self.dp.send_msg(msg)
+        # xidを返却
         return msg.xid
 
     def add_flow(self, in_port=None, out_port=None):
@@ -1607,18 +1631,22 @@ class TestPatterns(dict):
         # Parse test pattern from test files.
         self._get_tests(test_dir)
 
+    # testパターンを取得
     def _get_tests(self, path):
+        # 指定パスが存在しない場合はワーニングを出力してリターン
         if not os.path.exists(path):
             msg = INVALID_PATH % {'path': path}
             self.logger.warning(msg)
             return
 
+        # 指定パスが存在（ディレクトリ）
         if os.path.isdir(path):  # Directory
             for test_path in os.listdir(path):
                 test_path = path + (test_path if path[-1:] == '/'
                                     else '/%s' % test_path)
                 self._get_tests(test_path)
 
+        # 指定パスが存在（ファイル）
         elif os.path.isfile(path):  # File
             (dummy, ext) = os.path.splitext(path)
             if ext == '.json':

@@ -37,7 +37,9 @@ class EventOFPMsgBase(event.EventBase):
 #
 
 _OFP_MSG_EVENTS = {}
-
+#
+#_OFP_MSG_EVENTS[name] ← name に対応したクラス定義を返却してくれる
+#　　　　　　　　　　　　　　通常は引数として msg を与える。
 
 # ----------------------------------------------------------
 # 概要＠イベントクラス（msgを入れてあげるとイベント（人が理解可能な
@@ -69,24 +71,37 @@ def ofp_msg_to_ev_cls(msg_cls):
 
 #　イベントクラス生成（内部メソッド）
 def _create_ofp_msg_ev_class(msg_cls):
+    #クラス定義の名前（クラス名）を取得
     name = _ofp_msg_name_to_ev_name(msg_cls.__name__)
     # print 'creating ofp_event %s' % name
 
+    #もし、イベント一覧辞書に存在する場合は、　リターン　（処理終了）
     if name in _OFP_MSG_EVENTS:
         return
 
+    #cls に タプルを格納
+    #(name, メッセージ基底のタプル, 辞書＠謎★ )
     cls = type(name, (EventOFPMsgBase,),
                dict(__init__=lambda self, msg:
                     super(self.__class__, self).__init__(msg)))
+    #★謎
     globals()[name] = cls
+    #イベント一覧に key=クラス名　で　クラス定義を格納
     _OFP_MSG_EVENTS[name] = cls
 
 #　イベントクラス生成（内部メソッド）
 def _create_ofp_msg_ev_from_module(ofp_parser):
     # print mod
+
+    # 1. ofp_parserからクラス定義を取得
+    #    ★inspect.getmembers(ofp_parser, inspect.isclass):とは
+    #    ★inspect.isclassとは
     for _k, cls in inspect.getmembers(ofp_parser, inspect.isclass):
+        # 2. 取得したクラスに「cls_msg_type」が存在しない場合はループ継続
+        # 　　※ここで取得するクラスの一覧は xxx_parser を参考のこと
         if not hasattr(cls, 'cls_msg_type'):
             continue
+        # 3.　内部メソッドを呼ぶ（引数は cls_msg_type 属性を持つクラス定義）
         _create_ofp_msg_ev_class(cls)
 
 #　イベントクラス生成のトリガ
@@ -113,5 +128,5 @@ class EventOFPStateChange(event.EventBase):
         super(EventOFPStateChange, self).__init__()
         self.datapath = dp
 
-
+#★
 handler.register_service('ryu.controller.ofp_handler')

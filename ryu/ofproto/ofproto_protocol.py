@@ -38,6 +38,7 @@ _supported_versions = set(_versions.keys())
 
 
 # アプリケーションのサポートバージョンを設定
+#　→逆に、これを設定しなかった場合、APPの対応versionは↑の1.1～1.4までとなる。
 def set_app_supported_versions(vers):
     # サポートバージョンを編集可能できるように宣言
     global _supported_versions

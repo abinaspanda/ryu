@@ -46,6 +46,7 @@ from ryu.controller.handler import HANDSHAKE_DISPATCHER, CONFIG_DISPATCHER,\
 # back Echo Reply message.
 
 #OFPハンドラ
+#※RYUAPPを継承している。
 class OFPHandler(ryu.base.app_manager.RyuApp):
     #　初期化
     def __init__(self, *args, **kwargs):
@@ -65,7 +66,7 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
         error_msg.data = error_desc
         datapath.send_msg(error_msg)
 
-    # Hello時のハンドラ
+    # Hello時のハンドラ　　　　　↓HElloのクラス　なぜofp_event？★
     @set_ev_handler(ofp_event.EventOFPHello, HANDSHAKE_DISPATCHER)
     def hello_handler(self, ev):
         self.logger.debug('hello ev %s', ev)
@@ -79,6 +80,7 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
 
         # check if received version is supported.
         # pre 1.0 is not supported
+
         elements = getattr(msg, 'elements', None)
         if elements:
             switch_versions = set()

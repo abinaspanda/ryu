@@ -32,6 +32,7 @@ import oslo.config.cfg
 # At some point later we might want to unshare a. and b. as well, in order
 # to allow app-specific options.
 
+# ↑でインポートした cfgのCONFを取得
 CONF = oslo.config.cfg.CONF
 
 # re-export for convenience

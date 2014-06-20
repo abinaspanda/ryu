@@ -124,8 +124,9 @@ class RyuApp(object):
     This should be specified if and only if event classes are defined in
     a different python module from the RyuApp subclass is.
     """
-
+    #OFP_VERSIONSの初期値はNone
     OFP_VERSIONS = None
+    #★
     """
     A list of supported OpenFlow versions for this RyuApp.
     The default is all versions supported by the framework.
@@ -148,15 +149,19 @@ class RyuApp(object):
 
     def __init__(self, *_args, **_kwargs):
         super(RyuApp, self).__init__()
+        #クラス名を設定
         self.name = self.__class__.__name__
+        #初期化
         self.event_handlers = {}        # ev_cls -> handlers:list
         self.observers = {}     # ev_cls -> observer-name -> states:set
         self.threads = []
         self.events = hub.Queue(128)
+        #★
         if hasattr(self.__class__, 'LOGGER_NAME'):
             self.logger = logging.getLogger(self.__class__.LOGGER_NAME)
         else:
             self.logger = logging.getLogger(self.name)
+        #コンフィグを取得★
         self.CONF = cfg.CONF
 
         # prevent accidental creation of instances of this class outside RyuApp

@@ -125,7 +125,7 @@
 │   │   │   └── wsgi.py
 │   │   ├── base
 │   │   │   ├── __init__.py
-│   │   │   └── app_manager.py# ★
+│   │   │   └── app_manager.py# ★重要（アプリ起動まわり）
 │   │   ├── cfg.py
 │   │   ├── cmd
 │   │   │   ├── __init__.py
