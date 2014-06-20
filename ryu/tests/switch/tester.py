@@ -88,6 +88,10 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ofproto_v1_3_parser
 
 
+#(3)のケーブルは何のために使う？★
+#Throughtput計測のためのマッチ条件とは？★
+# →クッキー指定でフローを書き込んでいる
+
 """ Required test network:
 
                       +-------------------+
@@ -264,16 +268,18 @@ MSG = {STATE_INIT_FLOW:
 ERR_MSG = 'OFPErrorMsg[type=0x%02x, code=0x%02x]'
 
 
+# テストメッセージのベース
 class TestMessageBase(RyuException):
     def __init__(self, state, message_type, **argv):
         msg = MSG[state][message_type] % argv
         super(TestMessageBase, self).__init__(msg=msg)
 
-
+# テスト失敗時のメッセージ
 class TestFailure(TestMessageBase):
+    #**argv★
     def __init__(self, state, **argv):
         super(TestFailure, self).__init__(state, FAILURE, **argv)
-
+        #                                           ↑メッセージタイプはFAILURE
 
 class TestTimeout(TestMessageBase):
     def __init__(self, state):
@@ -372,12 +378,17 @@ class OfTester(app_manager.RyuApp):
         hub.joinall([self.test_thread])
         self._test_end('--- Test terminated ---')
 
+    #DISPATCHERがMAIN/DEAD時に実行される
     @set_ev_cls(ofp_event.EventOFPStateChange,
                 [handler.MAIN_DISPATCHER, handler.DEAD_DISPATCHER])
     def dispacher_change(self, ev):
+        #イベントのdatapath（not ID）に値が入っていなかったら
+        # なぜdataoathに値が入っていない？？
         assert ev.datapath is not None
+        #ステートがMAIN～だったら→登録処理
         if ev.state == handler.MAIN_DISPATCHER:
             self._register_sw(ev.datapath)
+        #ステートがDEAD～だったら→登録解除処理
         elif ev.state == handler.DEAD_DISPATCHER:
             self._unregister_sw(ev.datapath)
 
@@ -404,11 +415,23 @@ class OfTester(app_manager.RyuApp):
         # 2. いずれかがダミーデータパスではない→どちらも接続OKだったら
         if not (isinstance(self.target_sw.dp, DummyDatapath) or
                 isinstance(self.tester_sw.dp, DummyDatapath)):
+            # sw_waiterはhub.Event()を入れて、SW接続を待つための変数
+            # →有数＝スイッチ接続待ち
             # sw_waiterが有数だったら★
             if self.sw_waiter is not None:
                 # sw_waiter.setを実行★
                 self.sw_waiter.set()
+                #eventlet.event.Event()の
+                # self._ev.send()
+                #eventletイベントは、1つのイベントをマルチに送信不可
+                #のため、元になるイベントをもう一度作成する.
+                #注意：_ev.reset（）は廃止されました。
+                #もう一度Eventを取得
+                #
+                #つまり、test_waiterでwaitしている処理を、
+                #本処理を実行することにより、処理再開させることができる
 
+    # SW登録解除処理
     def _unregister_sw(self, dp):
         if dp.id == self.target_dpid:
             self.target_sw.dp = DummyDatapath()
@@ -461,7 +484,11 @@ class OfTester(app_manager.RyuApp):
                 isinstance(self.tester_sw.dp, DummyDatapath):
             【ログ出力】self.logger.info('waiting for switches connection...')
             self.sw_waiter = hub.Event()
+            #hub...本体はeventlet
+            #hub.Event.set  ->
+            #hub.Event.wait -> ジョブの完了を待つ
             self.sw_waiter.wait()
+            #ジョブが完了したら、初期化（Noneを入れる）
             self.sw_waiter = None
 
         # -----------------------------------------------------------------------
@@ -491,9 +518,11 @@ class OfTester(app_manager.RyuApp):
             for flow in test.prerequisite:
                 # flow には、バージョンに応じたクラスインスタンスが設定されている。
                 if isinstance(flow, ofproto_v1_3_parser.OFPFlowMod):
+                    # -------エントリ関連のインストール------------------
                     # 1. フローのインストール（ターゲット）
                     #● STATE_FLOW_INSTALL（設定）
                     self._test(STATE_FLOW_INSTALL, self.target_sw, flow)
+                    #　　　　　　　▼
                     # 2. フローが正しく設定されたかチェック
                     #● STATE_FLOW_EXIST_CHK（設定確認）
                     self._test(STATE_FLOW_EXIST_CHK,
@@ -502,6 +531,7 @@ class OfTester(app_manager.RyuApp):
                 elif isinstance(flow, ofproto_v1_3_parser.OFPMeterMod):
                     #● STATE_METER_INSTALL（設定）
                     self._test(STATE_METER_INSTALL, self.target_sw, flow)
+                    #　　　　　　　▼
                     #● STATE_METER_EXIST_CHK（設定確認）
                     self._test(STATE_METER_EXIST_CHK,
                                self.target_sw.send_meter_config_stats, flow)
@@ -509,46 +539,49 @@ class OfTester(app_manager.RyuApp):
                 elif isinstance(flow, ofproto_v1_3_parser.OFPGroupMod):
                     #● STATE_GROUP_INSTALL（設定）
                     self._test(STATE_GROUP_INSTALL, self.target_sw, flow)
+                    #　　　　　　　▼
                     #● STATE_GROUP_EXIST_CHK（設定確認）
                     self._test(STATE_GROUP_EXIST_CHK,
                                self.target_sw.send_group_desc_stats, flow)
+                    # -------------------------------------------------
             # Do tests.
             for pkt in test.tests:
                 # ※テストとして期待する結果は
                 # 「スループット」「EGRESS（戻ってくる）」「パケットイン」
                 # 「マッチせず」の４パターン
-
                 # -----------------------------------------------------------------------
-                # 5.tests配列のpkt辞書にEGRESS or PKT_IN が含まれていた場合
-
-                # Get stats before sending packet(s).
-                #● STATE_TARGET_PKT_COUNT（ポート統計）
-                #● STATE_TESTER_PKT_COUNT（ポート統計）
+                ### 5.tests配列のpkt辞書にEGRESS or PKT_IN が含まれていた場合
+                ### Get stats before sending packet(s).
+                ###タイムアウト時の情報出力用
+                ###● STATE_TARGET_PKT_COUNT（ポート統計）
+                ###● STATE_TESTER_PKT_COUNT（ポート統計）
                 if KEY_EGRESS in pkt or KEY_PKT_IN in pkt:
                     target_pkt_count = [self._test(STATE_TARGET_PKT_COUNT,
                                                    True)]
                     tester_pkt_count = [self._test(STATE_TESTER_PKT_COUNT,
                                                    False)]
-
                 # 或いは
                 # 5.tests配列のpkt辞書に KEY_THROUGHPUT が含まれていた場合
+                #　　テスターのフロー統計を取得→試験後に比較
                 elif KEY_THROUGHPUT in pkt:
                     # install flows for throughput analysis
                     for throughput in pkt[KEY_THROUGHPUT]:
                         flow = throughput[KEY_FLOW]
                         #● STATE_THROUGHPUT_FLOW_INSTALL（フロー設定）
-                        self._test(STATE_THROUGHPUT_FLOW_INSTALL,
-                                   self.tester_sw, flow)
+                        self._test(STATE_THROUGHPUT_FLOW_INSTALL,#▼
+                                   self.tester_sw, flow)         #▼
                         #● STATE_THROUGHPUT_FLOW_EXIST_CHK（設定確認）
-                        #● STATE_GET_THROUGHPUT（スループット取得）
-                        # 　→スループット用のフローの
-                        #     バイトカウント、パケットカウントを取得
                         self._test(STATE_THROUGHPUT_FLOW_EXIST_CHK,
                                    self.tester_sw.send_flow_stats, flow)
+                    #● STATE_GET_THROUGHPUT（スループット取得）
+                    # 　→スループット用のフローの
+                    #     バイトカウント、パケットカウントを取得
                     start = self._test(STATE_GET_THROUGHPUT)
                 # 或いは
                 # 5.tests配列のpkt辞書に KEY_TBL_MISS が含まれていた場合
                 elif KEY_TBL_MISS in pkt:
+                    # ●●●STATE_GET_MATCH_COUNT（start）
+                    # →検索の回数、マッチ回数を取得（試験後の成否チェックのために取得）
                     before_stats = self._test(STATE_GET_MATCH_COUNT)
 
                 # -----------------------------------------------------------------------
@@ -571,6 +604,8 @@ class OfTester(app_manager.RyuApp):
                     result = self._test(STATE_FLOW_MATCH_CHK, pkt)
                     # タイムアウト時処理
                     if result == TIMEOUT:
+                        #● STATE_TARGET_PKT_COUNT（ポート統計）
+                        #● STATE_TESTER_PKT_COUNT（ポート統計）
                         target_pkt_count.append(self._test(
                             STATE_TARGET_PKT_COUNT, True))
                         tester_pkt_count.append(self._test(
@@ -582,6 +617,8 @@ class OfTester(app_manager.RyuApp):
                 # -----------------------------------
                 elif KEY_THROUGHPUT in pkt:
                     # スループット用の統計を取得（テスター側のフロー）
+                    # ●●●STATE_GET_MATCH_COUNT（end）
+                    # →検索の回数、マッチ回数を取得（試験後の比較のために取得）
                     end = self._test(STATE_GET_THROUGHPUT)
                     # テスト結果を確認＠_CHK
                     self._test(STATE_THROUGHPUT_CHK, pkt[KEY_THROUGHPUT],
@@ -678,6 +715,7 @@ class OfTester(app_manager.RyuApp):
         self.send_msg_xids = []
         self.rcv_msgs = []
 
+        # stateを設定する。ポート統計取得中。。フロー設定中。。。など
         self.state = state
         return test[state](*args)
 
@@ -854,6 +892,7 @@ class OfTester(app_manager.RyuApp):
             err_msg = 'OFPPacketIn[reason=%d]' % msg.reason
         elif repr(msg.data) != repr(model_pkt):
             pkt_type = 'packet'
+            #★
             err_msg = self._diff_packets(packet.Packet(model_pkt),
                                          packet.Packet(msg.data))
         else:
@@ -1058,40 +1097,69 @@ class OfTester(app_manager.RyuApp):
                 self.ingress_event.set()
                 break
 
-    #
+    # フローを比較
+    #　→フロー設定時に、問題なくフローが設定できているか
+    #　　チェックするために使う
     def _compare_flow(self, stats1, stats2):
 
+        #フローマッチフィールドの再構築
         def __reasm_match(match):
             """ reassemble match_fields. """
+            #マスク長を定義
+            #通常はマッチフィールドの長さ（bits）x８だが、
+            #仕様書の定義上そうではないものがいくつかあるため、
+            #ここで定義する。
             mask_lengths = {'vlan_vid': 12 + 1,
                             'ipv6_exthdr': 9}
+            #match_field(最終的に返却するリスト)を定義
             match_fields = list()
             for key, united_value in match.iteritems():
+                #united_valueが　タプル　の場合
                 if isinstance(united_value, tuple):
+                    #　value と mask に文理
                     (value, mask) = united_value
                     # look up oxm_fields.TypeDescr to get mask length.
+                    #  ofproto_v1_3.oxm_typeから順番に
+                    #  open flow basic を取得
                     for ofb in ofproto_v1_3.oxm_types:
                         if ofb.name == key:
+                            #  open flow basic の　名前　が key と一致したら
                             # create all one bits mask
+                            # 1. マスク長を取得して
                             mask_len = mask_lengths.get(
                                 key, ofb.type.size * 8)
+                            # 2. all_one_bits を生成
                             all_one_bits = 2 ** mask_len - 1
                             # convert mask to integer
+                            # 3. int型にmaskを変換
                             mask_bytes = ofb.type.from_user(mask)
                             oxm_mask = int(binascii.hexlify(mask_bytes), 16)
+                            # 4. all one bits ならマスクを除去
                             # when mask is all one bits, remove mask
                             if oxm_mask & all_one_bits == all_one_bits:
                                 united_value = value
+                            # 5. all zero bits ならNone
                             # when mask is all zero bits, remove field.
                             elif oxm_mask & all_one_bits == 0:
                                 united_value = None
                             break
+                # マスクがオールゼロ　ではない場合に、match_fieldに値を代入
                 if united_value is not None:
+                    #マッチフィールドに key, united_valueを代入
+                    # ex.
+                    # key = 'in_port', united_value = 3
+                    # key = 'vlan_vid', united_value = (xxxx, 0000fff)
+                    # key = 'vlan_vid', united_value = None ※ mask = all zero
+                    # key = 'vlan_vid', united_value = xxxx ※ mask = all one
+                    #     ↑　これらを　list にタプル形式として　足していく
+                    # [(key, united_value),(key, united_value),(key, united_value)]
                     match_fields.append((key, united_value))
             return match_fields
 
+        # フローエントリのアトリビュートリストを定義
         attr_list = ['cookie', 'priority', 'hard_timeout', 'idle_timeout',
                      'table_id', 'instructions', 'match']
+        # リストを回して、statsから値を取得していく。。cookie->priority->。。。
         for attr in attr_list:
             value1 = getattr(stats1, attr)
             value2 = getattr(stats2, attr)
@@ -1101,9 +1169,11 @@ class OfTester(app_manager.RyuApp):
             elif attr == 'match':
                 value1 = sorted(__reasm_match(value1))
                 value2 = sorted(__reasm_match(value2))
+            #値が異なってしまった場合
             if str(value1) != str(value2):
                 flow_stats = []
                 for attr in attr_list:
+                    #flow_statsにアペンドして、falseをリターン
                     flow_stats.append('%s=%s' % (attr, getattr(stats1, attr)))
                 return False, 'flow_stats(%s)' % ','.join(flow_stats)
         return True, None
@@ -1134,12 +1204,29 @@ class OfTester(app_manager.RyuApp):
                 return False, 'group_stats(%s)' % ','.join(group_stats)
             return True, None
 
+    # diffパケット（パケットデータを比較）
+    # model_pkt 期待するパケットデータのイメージ
+    # rcv_pkt 　実際のパケットデータのイメージ
+    #          　→ハンドラで受信する ev.msg の
+    #               ev.msg.data のこと
+    #                 ↑どんなクラス構造？protocols?get_protocols?
     def _diff_packets(self, model_pkt, rcv_pkt):
+        # 1. msgを初期化
         msg = []
+        # 2. 受信パケットを順番に解析
+        #　　→protocolsリストにrcv_pktに含まれるプロトコル一覧が入っている
         for rcv_p in rcv_pkt.protocols:
+            # rcv_p 任意のプロトコル
+            # model_protocols xxx
+            # ★↑確認要＠rcv_pktの構造
+            # プロトコルのタイプが 文字列　でないばあい
             if type(rcv_p) != str:
+                # get_protocolsメソッドから　タイプに応じた
+                #  model_protocolsをもらう
                 model_protocols = model_pkt.get_protocols(type(rcv_p))
+                # model_protocolsの長さが　１　だったら
                 if len(model_protocols) == 1:
+                    # [0]のみを取得
                     model_p = model_protocols[0]
                     diff = []
                     for attr in rcv_p.__dict__:
@@ -1158,6 +1245,8 @@ class OfTester(app_manager.RyuApp):
                                    (rcv_p.__class__.__name__,
                                     ','.join(diff)))
                 else:
+                    # model_protocols が None　或いは
+                    # model_protocols の中に　rcv_pが存在しない場合
                     if (not model_protocols or
                             not str(rcv_p) in str(model_protocols)):
                         msg.append(str(rcv_p))
@@ -1182,6 +1271,7 @@ class OfTester(app_manager.RyuApp):
         self.send_msg_xids.append(xid)
 
         # ２. 待ち
+
         self._wait() #-------------wait-------------
 
         # ３. 結果を確認（統計を返却）
@@ -1206,15 +1296,20 @@ class OfTester(app_manager.RyuApp):
             # 3 マッチを取得★
             match = str(throughput[KEY_FLOW].match)
 
-            # 2 期待するスループットを取得
+            # 4 期待するスループットを取得
             # get oxm_fields of OFPMatch
             fields = dict(throughput[KEY_FLOW].match._fields2)
 
+            # 5 エラーチェック★
             if match not in start[1] or match not in end[1]:
                 raise TestError(self.state, match=match)
+
+            # 6 上昇値（バイト、パケット）を取得
             increased_bytes = end[1][match][0] - start[1][match][0]
             increased_packets = end[1][match][1] - start[1][match][1]
 
+            # 7 テストファイルからスループットの期待値を取得
+            # 　単位は（PKTPS、KBPS）
             if throughput[KEY_PKTPS]:
                 key = KEY_PKTPS
                 conv = 1
@@ -1230,31 +1325,45 @@ class OfTester(app_manager.RyuApp):
                     'An invalid key exists that is neither "%s" nor "%s".'
                     % (KEY_KBPS, KEY_PKTPS))
 
+            # 8 送信したであろうパケット数/キロバイト数を取得（期待値）]
             expected_value = throughput[key] * elapsed_sec * conv
+            # 9 多少の誤差は発生するため、マージン値を取得（１０％までなら許容）
             margin = expected_value * THROUGHPUT_THRESHOLD
             【ログ出力】self.logger.debug("measured_value:[%s]", measured_value)
             【ログ出力】self.logger.debug("expected_value:[%s]", expected_value)
             【ログ出力】self.logger.debug("margin:[%s]", margin)
+            # 10 計測値　と　期待値　の差分の　絶対値　を取得
+            #　　→誤差がマージン値を越えていた場合
             if math.fabs(measured_value - expected_value) > margin:
+                #メッセージにアペンド
                 msgs.append('{0} {1:.2f}{2}'.format(fields,
                             measured_value / elapsed_sec / conv, unit))
 
         if msgs:
+            #メッセージが存在した場合 TESTFailure→スループット値が期待した計測値ではない
             raise TestFailure(self.state, detail=', '.join(msgs))
 
     # 待ち処理＠OFメッセージを受信するまで待ち続ける
+    # 　statsリクエスト送信時等に利用する
     def _wait(self):
         """ Wait until specific OFP message received
              or timer is exceeded. """
+
+        #waiterがNoneであることを確認
         assert self.waiter is None
 
+        #waiterを設定
         self.waiter = hub.Event()
+        #レシーブメッセージを初期化
         self.rcv_msgs = []
         timeout = False
 
+        #タイマーを設定
         timer = hub.Timeout(WAIT_TIMER)
         try:
+            # waiter による waitを実行
             self.waiter.wait()
+        # タイムアウト発生時は、RYUException（内部エラー）を出力する
         except hub.Timeout as t:
             if t is not timer:
                 raise RyuException('Internal error. Not my timeout.')
@@ -1262,14 +1371,18 @@ class OfTester(app_manager.RyuApp):
         finally:
             timer.cancel()
 
+        #waiterを初期化（None化）
         self.waiter = None
 
+        #タイムアウトだった場合、raise実施（タイムアウト）
         if timeout:
             raise TestTimeout(self.state)
+        #エラーメッセージ受信の場合、raise実施（エラー受信）
         if (self.rcv_msgs and isinstance(
                 self.rcv_msgs[0], ofproto_v1_3_parser.OFPErrorMsg)):
             raise TestReceiveError(self.state, self.rcv_msgs[0])
 
+    #統計リプライのハンドラ
     @set_ev_cls([ofp_event.EventOFPFlowStatsReply,
                  ofp_event.EventOFPMeterConfigStatsReply,
                  ofp_event.EventOFPTableStatsReply,
@@ -1295,6 +1408,8 @@ class OfTester(app_manager.RyuApp):
             ofp_event.EventOFPGroupDescStatsReply:
                 [STATE_GROUP_EXIST_CHK]
         }
+        # state が event_states辞書に含まれている場合、処理を開始
+        # →関係のないメッセージの場合はスルー
         if self.state in event_states[ev.__class__]:
             # 送信済みxidに含まれている場合、rcv_msgsにアペンド
             if self.waiter and ev.msg.xid in self.send_msg_xids:
