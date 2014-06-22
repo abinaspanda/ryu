@@ -47,7 +47,9 @@ from ryu.lib.dpid import dpid_to_str
 
 LOG = logging.getLogger('ryu.controller.controller')
 
+#謎★
 CONF = cfg.CONF
+#謎★
 CONF.register_cli_opts([
     cfg.StrOpt('ofp-listen-host', default='', help='openflow listen host'),
     cfg.IntOpt('ofp-tcp-listen-port', default=ofproto_common.OFP_TCP_PORT,
@@ -59,16 +61,18 @@ CONF.register_cli_opts([
     cfg.StrOpt('ca-certs', default=None, help='CA certificates')
 ])
 
-
+# OpenFlowControllerクラス
 class OpenFlowController(object):
     def __init__(self):
         super(OpenFlowController, self).__init__()
 
     # entry point
+    # エントリーポイント？★
     def __call__(self):
         # LOG.debug('call')
         self.server_loop()
 
+	# Server_LOOP
     def server_loop(self):
         if CONF.ctl_privkey is not None and CONF.ctl_cert is not None:
             if CONF.ca_certs is not None:

@@ -1,3 +1,32 @@
+tree.py:8: │   │   ├── ryu # ★ 確認中
+tree.py:9: │   │   └── ryu-manager # ★ 確認中
+tree.py:79: │   │       └── ryu.conf# ★
+tree.py:80: │   ├── run_tests.sh# ★
+tree.py:103: │   │   │   ├── ofctl_rest.py# ★
+tree.py:128: │   │   │   └── app_manager.py# ★重要（アプリ起動まわり）
+tree.py:132: │   │   │   ├── manager.py# ★
+tree.py:136: │   │   │   └── ryu_base.py# ★
+tree.py:139: │   │   │   ├── _eventlet# ★ 確認中
+tree.py:215: │   │   │   ├── controller.py# ★
+tree.py:216: │   │   │   ├── dpset.py# ★
+tree.py:217: │   │   │   ├── event.py# ★
+tree.py:218: │   │   │   ├── handler.py# ★重要
+tree.py:221: │   │   │   ├── network.py# ★
+tree.py:222: │   │   │   ├── ofp_event.py# ★ 確認中
+tree.py:223: │   │   │   ├── ofp_handler.py# ★ 確認中
+tree.py:231: │   │   │   ├── dpid.py# ★
+tree.py:232: │   │   │   ├── hub.py# ★ 確認中
+tree.py:310: │   │   │   ├── ofproto_common.py# ★
+tree.py:311: │   │   │   ├── ofproto_parser.py# ★
+tree.py:312: │   │   │   ├── ofproto_protocol.py# ★
+tree.py:315: │   │   │   ├── ofproto_v1_2.py# ★
+tree.py:316: │   │   │   ├── ofproto_v1_2_parser.py# ★
+tree.py:321: │   │   │   └── oxm_fields.py# ★
+tree.py:539: │   │   │   │   └── tester.py# ★
+tree.py:636: │   │   └── utils.py# ★
+Found 32 matches for "#".
+
+----------------------------------------------------------------------
 .
 ├── ryu
 │   ├── CONTRIBUTING.rst
@@ -5,8 +34,8 @@
 │   ├── MANIFEST.in
 │   ├── README.rst
 │   ├── bin
-│   │   ├── ryu # ★ 確認中
-│   │   └── ryu-manager # ★ 確認中
+│   │   ├── ryu # ★ userが直接実行するもの　確認中 from ryu.cmd.ryu_base import main -> main()
+│   │   └── ryu-manager # ★userが直接実行するもの　from ryu.cmd.manager import main -> main()
 │   ├── debian
 │   │   ├── changelog
 │   │   ├── clean
@@ -125,7 +154,7 @@
 │   │   │   └── wsgi.py
 │   │   ├── base
 │   │   │   ├── __init__.py
-│   │   │   └── app_manager.py# ★重要（アプリ起動まわり）
+│   │   │   └── app_manager.py# ★重要（アプリ起動まわり）AppManager（アプリのインスタンス化）、RyuApp（アプリのBase）
 │   │   ├── cfg.py
 │   │   ├── cmd
 │   │   │   ├── __init__.py
@@ -212,15 +241,15 @@
 │   │   ├── controller
 │   │   │   ├── __init__.py
 │   │   │   ├── conf_switch.py
-│   │   │   ├── controller.py# ★
+│   │   │   ├── controller.py# ★コントローラ（TCPコネクション検知のスレッドloop）、データパスクラス、データパスFactory
 │   │   │   ├── dpset.py# ★
 │   │   │   ├── event.py# ★
 │   │   │   ├── handler.py# ★重要
 │   │   │   ├── mac_to_network.py
 │   │   │   ├── mac_to_port.py
 │   │   │   ├── network.py# ★
-│   │   │   ├── ofp_event.py# ★ 確認中
-│   │   │   ├── ofp_handler.py# ★ 確認中
+│   │   │   ├── ofp_event.py# ★ 確認中　msg->イベントクラス（人が理解できる形）変換
+│   │   │   ├── ofp_handler.py# ★ 確認中　デフォルトのOFハンドラ定義
 │   │   │   └── tunnels.py
 │   │   ├── exception.py
 │   │   ├── flags.py
@@ -307,13 +336,13 @@
 │   │   │   ├── ether.py
 │   │   │   ├── inet.py
 │   │   │   ├── nx_match.py
-│   │   │   ├── ofproto_common.py# ★
+│   │   │   ├── ofproto_common.py# ★ デフォルトの定数定義少し
 │   │   │   ├── ofproto_parser.py# ★
-│   │   │   ├── ofproto_protocol.py# ★
+│   │   │   ├── ofproto_protocol.py# ★ Appの対応OFバージョンの設定
 │   │   │   ├── ofproto_v1_0.py# ★
 │   │   │   ├── ofproto_v1_0_parser.py# ★
-│   │   │   ├── ofproto_v1_2.py# ★
-│   │   │   ├── ofproto_v1_2_parser.py# ★
+│   │   │   ├── ofproto_v1_2.py# ★ 定数定義、oxm_typesの定義
+│   │   │   ├── ofproto_v1_2_parser.py# ★ OFメッセージ、アクション、インストラクション、マッチフィールド　のクラス（serialize & parser）
 │   │   │   ├── ofproto_v1_3.py# ★
 │   │   │   ├── ofproto_v1_3_parser.py# ★
 │   │   │   ├── ofproto_v1_4.py# ★

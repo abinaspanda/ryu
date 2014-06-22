@@ -17,7 +17,171 @@
 """
 Decoder/Encoder implementations of OpenFlow 1.2.
 """
+ofproto_v1_2_parser.py:185: @_set_msg_type(ofproto.OFPT_HELLO)
+ofproto_v1_2_parser.py:201: @_set_msg_type(ofproto.OFPT_ERROR)
+ofproto_v1_2_parser.py:307: @_set_msg_type(ofproto.OFPT_ECHO_REQUEST)
+ofproto_v1_2_parser.py:353: @_set_msg_type(ofproto.OFPT_ECHO_REPLY)
+ofproto_v1_2_parser.py:399: @_set_msg_type(ofproto.OFPT_EXPERIMENTER)
+ofproto_v1_2_parser.py:463: @_set_msg_type(ofproto.OFPT_FEATURES_REQUEST)
+ofproto_v1_2_parser.py:487: @_set_msg_type(ofproto.OFPT_FEATURES_REPLY)
+ofproto_v1_2_parser.py:543: @_set_msg_type(ofproto.OFPT_GET_CONFIG_REQUEST)
+ofproto_v1_2_parser.py:564: @_set_msg_type(ofproto.OFPT_GET_CONFIG_REPLY)
+ofproto_v1_2_parser.py:624: @_set_msg_type(ofproto.OFPT_SET_CONFIG)
+ofproto_v1_2_parser.py:668: @_set_msg_type(ofproto.OFPT_PACKET_IN)
+ofproto_v1_2_parser.py:747: @_set_msg_type(ofproto.OFPT_FLOW_REMOVED)
+ofproto_v1_2_parser.py:843: @_set_msg_type(ofproto.OFPT_PORT_STATUS)
+ofproto_v1_2_parser.py:897: @_set_msg_type(ofproto.OFPT_PACKET_OUT)
+ofproto_v1_2_parser.py:955: @_set_msg_type(ofproto.OFPT_FLOW_MOD)
+ofproto_v1_2_parser.py:1766: @_set_msg_type(ofproto.OFPT_GROUP_MOD)
+ofproto_v1_2_parser.py:1831: @_set_msg_type(ofproto.OFPT_PORT_MOD)
+ofproto_v1_2_parser.py:1912: @_set_msg_type(ofproto.OFPT_TABLE_MOD)
+ofproto_v1_2_parser.py:1976: @_set_msg_type(ofproto.OFPT_STATS_REPLY)
+ofproto_v1_2_parser.py:2018: @_set_msg_type(ofproto.OFPT_STATS_REQUEST)
+ofproto_v1_2_parser.py:2104: @_set_msg_type(ofproto.OFPT_STATS_REQUEST)
+ofproto_v1_2_parser.py:2267: @_set_msg_type(ofproto.OFPT_STATS_REQUEST)
+ofproto_v1_2_parser.py:2381: @_set_msg_type(ofproto.OFPT_STATS_REQUEST)
+ofproto_v1_2_parser.py:2494: @_set_msg_type(ofproto.OFPT_STATS_REQUEST)
+ofproto_v1_2_parser.py:2602: @_set_msg_type(ofproto.OFPT_STATS_REQUEST)
+ofproto_v1_2_parser.py:2705: @_set_msg_type(ofproto.OFPT_STATS_REQUEST)
+ofproto_v1_2_parser.py:2812: @_set_msg_type(ofproto.OFPT_STATS_REQUEST)
+ofproto_v1_2_parser.py:2902: @_set_msg_type(ofproto.OFPT_STATS_REQUEST)
+ofproto_v1_2_parser.py:2988: @_set_msg_type(ofproto.OFPT_QUEUE_GET_CONFIG_REQUEST)
+ofproto_v1_2_parser.py:3108: @_set_msg_type(ofproto.OFPT_QUEUE_GET_CONFIG_REPLY)
+ofproto_v1_2_parser.py:3159: @_set_msg_type(ofproto.OFPT_BARRIER_REQUEST)
+ofproto_v1_2_parser.py:3180: @_set_msg_type(ofproto.OFPT_BARRIER_REPLY)
+ofproto_v1_2_parser.py:3197: @_set_msg_type(ofproto.OFPT_ROLE_REQUEST)
+ofproto_v1_2_parser.py:3236: @_set_msg_type(ofproto.OFPT_ROLE_REPLY)
+Found 34 matches for "@_set_msg_type".
 
+#OFメッセージのクラス
+ofproto_v1_2_parser.py:46: '''class decorator to register msg parser'''
+ofproto_v1_2_parser.py:61: class OFPHello(MsgBase):
+ofproto_v1_2_parser.py:77: class OFPErrorMsg(MsgBase):
+ofproto_v1_2_parser.py:153: class OFPErrorExperimenterMsg(MsgBase):
+ofproto_v1_2_parser.py:183: class OFPEchoRequest(MsgBase):
+ofproto_v1_2_parser.py:229: class OFPEchoReply(MsgBase):
+ofproto_v1_2_parser.py:275: class OFPExperimenter(MsgBase):
+ofproto_v1_2_parser.py:312: class OFPPort(ofproto_parser.namedtuple('OFPPort', (
+ofproto_v1_2_parser.py:339: class OFPFeaturesRequest(MsgBase):
+ofproto_v1_2_parser.py:363: class OFPSwitchFeatures(MsgBase):
+ofproto_v1_2_parser.py:419: class OFPGetConfigRequest(MsgBase):
+ofproto_v1_2_parser.py:440: class OFPGetConfigReply(MsgBase):
+ofproto_v1_2_parser.py:500: class OFPSetConfig(MsgBase):
+ofproto_v1_2_parser.py:544: class OFPPacketIn(MsgBase):
+ofproto_v1_2_parser.py:623: class OFPFlowRemoved(MsgBase):
+ofproto_v1_2_parser.py:719: class OFPPortStatus(MsgBase):
+ofproto_v1_2_parser.py:773: class OFPPacketOut(MsgBase):
+ofproto_v1_2_parser.py:831: class OFPFlowMod(MsgBase):
+
+#インストラクションのクラス	
+ofproto_v1_2_parser.py:937: class OFPInstruction(StringifyMixin):
+ofproto_v1_2_parser.py:956: class OFPInstructionGotoTable(OFPInstruction):
+ofproto_v1_2_parser.py:987: class OFPInstructionWriteMetadata(OFPInstruction):
+ofproto_v1_2_parser.py:1023: class OFPInstructionActions(OFPInstruction):
+
+#アクションのクラス	
+ofproto_v1_2_parser.py:1084: class OFPActionHeader(StringifyMixin):
+ofproto_v1_2_parser.py:1094: class OFPAction(OFPActionHeader):
+ofproto_v1_2_parser.py:1126: class OFPActionOutput(OFPAction):
+ofproto_v1_2_parser.py:1158: class OFPActionGroup(OFPAction):
+ofproto_v1_2_parser.py:1187: class OFPActionSetQueue(OFPAction):
+ofproto_v1_2_parser.py:1217: class OFPActionSetMplsTtl(OFPAction):
+ofproto_v1_2_parser.py:1246: class OFPActionDecMplsTtl(OFPAction):
+ofproto_v1_2_parser.py:1264: class OFPActionSetNwTtl(OFPAction):
+ofproto_v1_2_parser.py:1293: class OFPActionDecNwTtl(OFPAction):
+ofproto_v1_2_parser.py:1311: class OFPActionCopyTtlOut(OFPAction):
+ofproto_v1_2_parser.py:1330: class OFPActionCopyTtlIn(OFPAction):
+ofproto_v1_2_parser.py:1349: class OFPActionPushVlan(OFPAction):
+ofproto_v1_2_parser.py:1378: class OFPActionPushMpls(OFPAction):
+ofproto_v1_2_parser.py:1407: class OFPActionPopVlan(OFPAction):
+ofproto_v1_2_parser.py:1425: class OFPActionPopMpls(OFPAction):
+ofproto_v1_2_parser.py:1448: class OFPActionSetField(OFPAction):
+ofproto_v1_2_parser.py:1571: class OFPActionExperimenter(OFPAction):
+	
+ofproto_v1_2_parser.py:1600: class OFPBucket(StringifyMixin):
+ofproto_v1_2_parser.py:1642: class OFPGroupMod(MsgBase):
+ofproto_v1_2_parser.py:1707: class OFPPortMod(MsgBase):
+ofproto_v1_2_parser.py:1788: class OFPTableMod(MsgBase):
+ofproto_v1_2_parser.py:1826: class OFPStatsRequest(MsgBase):
+ofproto_v1_2_parser.py:1852: class OFPStatsReply(MsgBase):
+	
+ofproto_v1_2_parser.py:1894: class OFPDescStatsRequest(OFPStatsRequest):
+ofproto_v1_2_parser.py:1922: class OFPDescStats(ofproto_parser.namedtuple('OFPDescStats', (
+ofproto_v1_2_parser.py:1980: class OFPFlowStatsRequest(OFPStatsRequest):
+ofproto_v1_2_parser.py:2044: class OFPFlowStats(StringifyMixin):
+ofproto_v1_2_parser.py:2143: class OFPAggregateStatsRequest(OFPStatsRequest):
+ofproto_v1_2_parser.py:2212: class OFPAggregateStatsReply(ofproto_parser.namedtuple('OFPAggregateStats', (
+ofproto_v1_2_parser.py:2257: class OFPTableStatsRequest(OFPStatsRequest):
+ofproto_v1_2_parser.py:2285: class OFPTableStats(
+ofproto_v1_2_parser.py:2370: class OFPPortStatsRequest(OFPStatsRequest):
+ofproto_v1_2_parser.py:2406: class OFPPortStats(
+ofproto_v1_2_parser.py:2478: class OFPQueueStatsRequest(OFPStatsRequest):
+ofproto_v1_2_parser.py:2517: class OFPQueueStats(
+ofproto_v1_2_parser.py:2566: class OFPBucketCounter(StringifyMixin):
+ofproto_v1_2_parser.py:2581: class OFPGroupStatsRequest(OFPStatsRequest):
+ofproto_v1_2_parser.py:2617: class OFPGroupStats(StringifyMixin):
+ofproto_v1_2_parser.py:2688: class OFPGroupDescStatsRequest(OFPStatsRequest):
+ofproto_v1_2_parser.py:2717: class OFPGroupDescStats(StringifyMixin):
+ofproto_v1_2_parser.py:2778: class OFPGroupFeaturesStatsRequest(OFPStatsRequest):
+ofproto_v1_2_parser.py:2809: class OFPGroupFeaturesStats(StringifyMixin):
+ofproto_v1_2_parser.py:2864: class OFPQueueGetConfigRequest(MsgBase):
+ofproto_v1_2_parser.py:2892: class OFPQueuePropHeader(StringifyMixin):
+ofproto_v1_2_parser.py:2902: class OFPQueueProp(OFPQueuePropHeader):
+ofproto_v1_2_parser.py:2929: class OFPPacketQueue(StringifyMixin):
+ofproto_v1_2_parser.py:2956: class OFPQueuePropMinRate(OFPQueueProp):
+ofproto_v1_2_parser.py:2970: class OFPQueuePropMaxRate(OFPQueueProp):
+ofproto_v1_2_parser.py:2984: class OFPQueueGetConfigReply(MsgBase):
+ofproto_v1_2_parser.py:3035: class OFPBarrierRequest(MsgBase):
+ofproto_v1_2_parser.py:3056: class OFPBarrierReply(MsgBase):
+ofproto_v1_2_parser.py:3073: class OFPRoleRequest(MsgBase):
+ofproto_v1_2_parser.py:3112: class OFPRoleReply(MsgBase):
+	
+ofproto_v1_2_parser.py:3173: class Flow(object):
+ofproto_v1_2_parser.py:3213: class FlowWildcards(object):
+ofproto_v1_2_parser.py:3237: class OFPMatch(StringifyMixin):
+ofproto_v1_2_parser.py:3241: This class is implementation of the flow match structure having
+ofproto_v1_2_parser.py:3939: class OFPMatchField(StringifyMixin):
+ofproto_v1_2_parser.py:4055: class MTInPort(OFPMatchField):
+ofproto_v1_2_parser.py:4065: class MTMetadata(OFPMatchField):
+ofproto_v1_2_parser.py:4075: class MTInPhyPort(OFPMatchField):
+ofproto_v1_2_parser.py:4085: class MTEthDst(OFPMatchField):
+ofproto_v1_2_parser.py:4096: class MTEthSrc(OFPMatchField):
+ofproto_v1_2_parser.py:4106: class MTEthType(OFPMatchField):
+ofproto_v1_2_parser.py:4116: class MTVlanVid(OFPMatchField):
+ofproto_v1_2_parser.py:4136: class MTVlanPcp(OFPMatchField):
+ofproto_v1_2_parser.py:4145: class MTIPDscp(OFPMatchField):
+ofproto_v1_2_parser.py:4154: class MTIPECN(OFPMatchField):
+ofproto_v1_2_parser.py:4163: class MTIPProto(OFPMatchField):
+ofproto_v1_2_parser.py:4173: class MTIPV4Src(OFPMatchField):
+ofproto_v1_2_parser.py:4184: class MTIPV4Dst(OFPMatchField):
+ofproto_v1_2_parser.py:4194: class MTTCPSrc(OFPMatchField):
+ofproto_v1_2_parser.py:4203: class MTTCPDst(OFPMatchField):
+ofproto_v1_2_parser.py:4212: class MTUDPSrc(OFPMatchField):
+ofproto_v1_2_parser.py:4221: class MTUDPDst(OFPMatchField):
+ofproto_v1_2_parser.py:4230: class MTSCTPSrc(OFPMatchField):
+ofproto_v1_2_parser.py:4239: class MTSCTPDst(OFPMatchField):
+ofproto_v1_2_parser.py:4248: class MTICMPV4Type(OFPMatchField):
+ofproto_v1_2_parser.py:4257: class MTICMPV4Code(OFPMatchField):
+ofproto_v1_2_parser.py:4266: class MTArpOp(OFPMatchField):
+ofproto_v1_2_parser.py:4276: class MTArpSpa(OFPMatchField):
+ofproto_v1_2_parser.py:4287: class MTArpTpa(OFPMatchField):
+ofproto_v1_2_parser.py:4298: class MTArpSha(OFPMatchField):
+ofproto_v1_2_parser.py:4309: class MTArpTha(OFPMatchField):
+ofproto_v1_2_parser.py:4318: class MTIPv6(object):
+ofproto_v1_2_parser.py:4335: class MTIPv6Src(MTIPv6, OFPMatchField):
+ofproto_v1_2_parser.py:4346: class MTIPv6Dst(MTIPv6, OFPMatchField):
+ofproto_v1_2_parser.py:4357: class MTIPv6Flabel(OFPMatchField):
+ofproto_v1_2_parser.py:4367: class MTMplsLabel(OFPMatchField):
+ofproto_v1_2_parser.py:4376: class MTICMPV6Type(OFPMatchField):
+ofproto_v1_2_parser.py:4385: class MTICMPV6Code(OFPMatchField):
+ofproto_v1_2_parser.py:4394: class MTIPv6NdTarget(MTIPv6, OFPMatchField):
+ofproto_v1_2_parser.py:4406: class MTIPv6NdSll(OFPMatchField):
+ofproto_v1_2_parser.py:4415: class MTIPv6NdTll(OFPMatchField):
+ofproto_v1_2_parser.py:4424: class MTMplsTc(OFPMatchField):
+Found 117 matches for "class ".
+
+
+--------------
 import struct
 import itertools
 

@@ -54,8 +54,10 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
         #　name は'ofp_event'
         self.name = 'ofp_event'
 
+	# 内部メソッドではない
     def start(self):
         super(OFPHandler, self).start()
+        #OpenFlowControllerクラスをサブスレッドで開始
         return hub.spawn(OpenFlowController())
 
     def _hello_failed(self, datapath, error_desc):
