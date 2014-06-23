@@ -912,22 +912,36 @@ def mod_flow_entry(dp, flow, cmd):
 
 def mod_meter_entry(dp, flow, cmd):
 
+    # flow = eval(req.body)
+    # reqのbody部分をそのまま入れたものがflow
     flags_convert = {'KBPS': dp.ofproto.OFPMF_KBPS,
                      'PKTPS': dp.ofproto.OFPMF_PKTPS,
                      'BURST': dp.ofproto.OFPMF_BURST,
                      'STATS': dp.ofproto.OFPMF_STATS}
 
+    #-----------------------------------------------------
+    # ■flow から flags(METER判定の単位) を取得
     flow_flags = flow.get('flags')
+    # flags の value がリストでなかった場合→リスト化
     if not isinstance(flow_flags, list):
         flow_flags = [flow_flags]
     flags = 0
+    # flags の数だけ繰り返し
     for flag in flow_flags:
+        # flags をコンバートして取得
+        # →flags = 'KBPS', 'PKTPS', ,,,, などなど
+        #　　該当がなければゼロを返却
         flags |= flags_convert.get(flag, 0)
+        # flags がFalseの場合(flow_flagsの中身がゼロの場合)
+        # →Unknown flags
     if not flags:
         LOG.debug('Unknown flags: %s', flow.get('flags'))
-
+    #-----------------------------------------------------
+    # ■flow から meter_id を取得
     meter_id = int(flow.get('meter_id', 0))
 
+    #-----------------------------------------------------
+    # ■flow から bands を取得
     bands = []
     for band in flow.get('bands', []):
         band_type = band.get('type')
@@ -949,6 +963,9 @@ def mod_meter_entry(dp, flow, cmd):
         else:
             LOG.debug('Unknown band type: %s', band_type)
 
+    #-----------------------------------------------------
+    # ■クラスを生成
+    #
     meter_mod = dp.ofproto_parser.OFPMeterMod(
         dp, cmd, flags, meter_id, bands)
 

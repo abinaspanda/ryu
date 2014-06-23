@@ -261,38 +261,7 @@ class StatsController(ControllerBase):
         body = json.dumps(groups)
         return Response(content_type='application/json', body=body)
 
-    def mod_flow_entry(self, req, cmd, **_kwargs):
-        try:
-            flow = eval(req.body)
-        except SyntaxError:
-            LOG.debug('invalid syntax %s', req.body)
-            return Response(status=400)
 
-        dpid = flow.get('dpid')
-        dp = self.dpset.get(int(dpid))
-        if dp is None:
-            return Response(status=404)
-
-        if cmd == 'add':
-            cmd = dp.ofproto.OFPFC_ADD
-        elif cmd == 'modify':
-            cmd = dp.ofproto.OFPFC_MODIFY
-        elif cmd == 'delete':
-            cmd = dp.ofproto.OFPFC_DELETE
-        else:
-            return Response(status=404)
-
-        if dp.ofproto.OFP_VERSION == ofproto_v1_0.OFP_VERSION:
-            ofctl_v1_0.mod_flow_entry(dp, flow, cmd)
-        elif dp.ofproto.OFP_VERSION == ofproto_v1_2.OFP_VERSION:
-            ofctl_v1_2.mod_flow_entry(dp, flow, cmd)
-        elif dp.ofproto.OFP_VERSION == ofproto_v1_3.OFP_VERSION:
-            ofctl_v1_3.mod_flow_entry(dp, flow, cmd)
-        else:
-            LOG.debug('Unsupported OF protocol')
-            return Response(status=501)
-
-        return Response(status=200)
 
     def delete_flow_entry(self, req, dpid, **_kwargs):
         dp = self.dpset.get(int(dpid))
@@ -311,8 +280,45 @@ class StatsController(ControllerBase):
 
         return Response(status=200)
 
+    def mod_flow_entry(self, req, cmd, **_kwargs):
+        try:
+            #req.bodyから eval★ でflowを取得
+            flow = eval(req.body)
+        except SyntaxError:
+            LOG.debug('invalid syntax %s', req.body)
+            return Response(status=400)
+
+        # dpidだけ取得
+        dpid = flow.get('dpid')
+        dp = self.dpset.get(int(dpid))
+        if dp is None:
+            return Response(status=404)
+
+        if cmd == 'add':
+            cmd = dp.ofproto.OFPFC_ADD
+        elif cmd == 'modify':
+            cmd = dp.ofproto.OFPFC_MODIFY
+        elif cmd == 'delete':
+            cmd = dp.ofproto.OFPFC_DELETE
+        else:
+            return Response(status=404)
+
+        # そのまま flow を mod_flow_entry メソッドに渡す
+        if dp.ofproto.OFP_VERSION == ofproto_v1_0.OFP_VERSION:
+            ofctl_v1_0.mod_flow_entry(dp, flow, cmd)
+        elif dp.ofproto.OFP_VERSION == ofproto_v1_2.OFP_VERSION:
+            ofctl_v1_2.mod_flow_entry(dp, flow, cmd)
+        elif dp.ofproto.OFP_VERSION == ofproto_v1_3.OFP_VERSION:
+            ofctl_v1_3.mod_flow_entry(dp, flow, cmd)
+        else:
+            LOG.debug('Unsupported OF protocol')
+            return Response(status=501)
+
+        return Response(status=200)
+
     def mod_meter_entry(self, req, cmd, **_kwargs):
         try:
+            #req.bodyから eval★ でflowを取得
             flow = eval(req.body)
         except SyntaxError:
             LOG.debug('invalid syntax %s', req.body)
