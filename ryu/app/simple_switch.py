@@ -87,6 +87,8 @@ class SimpleSwitch(app_manager.RyuApp):
             actions=actions)
         datapath.send_msg(out)
 
+    # 　　　　　　　↓のイベントが発生した際、かつ、↓の状況の際に呼ばれる。
+    #　　　　　　　　　ように、set_ev_clsの関数内で本ハンドラの登録処理が行われる。
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def _port_status_handler(self, ev):
         msg = ev.msg

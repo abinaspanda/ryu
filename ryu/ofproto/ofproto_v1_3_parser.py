@@ -57,14 +57,33 @@ LOG = logging.getLogger('ryu.ofproto.ofproto_v1_3_parser')
 
 _MSG_PARSERS = {}
 
-
+#■デコレータ呼び出し２。メッセージタイプをメンバに設定
 def _set_msg_type(msg_type):
     def _set_cls_msg_type(cls):
+        #cls の　メッセージタイプメンバに、メッセージタイプ（OFPT_HELLOなど）を設定
         cls.cls_msg_type = msg_type
         return cls
     return _set_cls_msg_type
 
 
+# ●処理の順番（パース時）
+#　→buf -> msg の形にパースする
+# 1. _register_parser でパーサークラスを
+#    _MSG_PARSERS辞書｛msg_type：クラス｝
+#    に登録する。
+# 2. ユーザがmsg_parserを実行する。
+#   2.1 デコレータ登録されている「register_msg_parser関数」が
+#　　　　実行される。
+#        →register関数が登録される。※バージョンに応じたparserを登録する関数？
+#   2.2　メッセージタイプに対応したパーサーでパースし、
+#　　　　 結果を返却する。
+
+# ●処理の順番（MSG送信時）
+#　インスタンス化→send_msgメソッドに載せる
+
+
+#■デコレータ呼び出し１。parserを全体用辞書に登録する関数
+#  cls は　おそらくデコレータ呼び出しをしている関数
 def _register_parser(cls):
     '''class decorator to register msg parser'''
     assert cls.cls_msg_type is not None
@@ -72,14 +91,17 @@ def _register_parser(cls):
     _MSG_PARSERS[cls.cls_msg_type] = cls.parser
     return cls
 
-
+#■■msgをパースする関数（このモジュールのメイン）
 @ofproto_parser.register_msg_parser(ofproto.OFP_VERSION)
 def msg_parser(datapath, version, msg_type, msg_len, xid, buf):
+    # parser として、メッセージタイプに対応したクラスのパーサーを取得する。
     parser = _MSG_PARSERS.get(msg_type)
+    # パースの結果を返却する。
     return parser(datapath, version, msg_type, msg_len, xid, buf)
 
-
+#↑のパーサー登録関数を実行
 @_register_parser
+#メッセージタイプとしてHELLOを設定
 @_set_msg_type(ofproto.OFPT_HELLO)
 class OFPHello(MsgBase):
     """

@@ -1,7 +1,6 @@
 tree.py:8: │   │   ├── ryu # ★ 確認中
 tree.py:9: │   │   └── ryu-manager # ★ 確認中
-tree.py:79: │   │       └── ryu.conf# ★
-tree.py:80: │   ├── run_tests.sh# ★
+tree.py:80: │   ├── run_tests.sh#
 tree.py:103: │   │   │   ├── ofctl_rest.py# ★
 tree.py:128: │   │   │   └── app_manager.py# ★重要（アプリ起動まわり）
 tree.py:132: │   │   │   ├── manager.py# ★
@@ -34,8 +33,8 @@ Found 32 matches for "#".
 │   ├── MANIFEST.in
 │   ├── README.rst
 │   ├── bin
-│   │   ├── ryu # ★ userが直接実行するもの　確認中 from ryu.cmd.ryu_base import main -> main()
-│   │   └── ryu-manager # ★userが直接実行するもの　from ryu.cmd.manager import main -> main()
+│   │   ├── ryu # ★ userが直接実行するもの(MAIN)　確認中 from ryu.cmd.ryu_base import main -> main()
+│   │   └── ryu-manager # ★userが直接実行するもの(MAIN)　from ryu.cmd.manager import main -> main()
 │   ├── debian
 │   │   ├── changelog
 │   │   ├── clean
@@ -129,7 +128,7 @@ Found 32 matches for "#".
 │   │   │   │   ├── event.py
 │   │   │   │   ├── exception.py
 │   │   │   │   └── service.py
-│   │   │   ├── ofctl_rest.py# ★
+│   │   │   ├── ofctl_rest.py# RESTメッセージを解釈し、OFメッセージをOFSへ送信する。OFメッセージの受信も実施。
 │   │   │   ├── quantum_adapter.py
 │   │   │   ├── rest.py
 │   │   │   ├── rest_conf_switch.py
@@ -241,14 +240,21 @@ Found 32 matches for "#".
 │   │   ├── controller
 │   │   │   ├── __init__.py
 │   │   │   ├── conf_switch.py
-│   │   │   ├── controller.py# ★コントローラ（TCPコネクション検知のスレッドloop）、データパスクラス、データパスFactory
-│   │   │   ├── dpset.py# ★
-│   │   │   ├── event.py# ★
-│   │   │   ├── handler.py# ★重要
-│   │   │   ├── mac_to_network.py
+│   │   │   ├── controller.py
+# ★コントローラ（TCPコネクション検知のスレッドloop）、データパスクラス、データパスFactory
+# １。まずここのDatapathインスタンスがbufを取得する
+#　　→アプリにmsg入りイベントを渡すまでの処理はここが担う。
+│   │   │   ├── dpset.py# Datapath設定周りのイベント一覧（OFメッセージ受信以外にもイベントはある）
+│   │   │   ├── event.py# イベント関連のBaseクラス
+│   │   │   ├── handler.py# 重要 set_ev_handler set_ev_cls の定義
+│   │   │   ├── mac_to_network.
 │   │   │   ├── mac_to_port.py
-│   │   │   ├── network.py# ★
-│   │   │   ├── ofp_event.py# ★ 確認中　msg->イベントクラス（人が理解できる形）変換
+│   │   │   ├── network.py# ネットワーク設定周り？のイベント一覧
+│   │   │   ├── ofp_event.py
+# ★ msg->イベントクラスへの変換
+#    ※ buf -> msg -> evの順番
+#　　現状、イベントクラスのメンバはmsgのみ。イベントの存在意義は？★
+#　　→デコレータはイベントに対応する形で定義。
 │   │   │   ├── ofp_handler.py# ★ 確認中　デフォルトのOFハンドラ定義
 │   │   │   └── tunnels.py
 │   │   ├── exception.py
@@ -257,8 +263,8 @@ Found 32 matches for "#".
 │   │   ├── lib
 │   │   │   ├── __init__.py
 │   │   │   ├── addrconv.py
-│   │   │   ├── dpid.py# ★
-│   │   │   ├── hub.py# ★ 確認中
+│   │   │   ├── dpid.py# dpidの変換
+│   │   │   ├── hub.py# ★ 確認中　eventlet関連の細かい関数一覧
 │   │   │   ├── igmplib.py
 │   │   │   ├── ip.py
 │   │   │   ├── lacplib.py
@@ -336,18 +342,33 @@ Found 32 matches for "#".
 │   │   │   ├── ether.py
 │   │   │   ├── inet.py
 │   │   │   ├── nx_match.py
-│   │   │   ├── ofproto_common.py# ★ デフォルトの定数定義少し
-│   │   │   ├── ofproto_parser.py# ★
-│   │   │   ├── ofproto_protocol.py# ★ Appの対応OFバージョンの設定
-│   │   │   ├── ofproto_v1_0.py# ★
-│   │   │   ├── ofproto_v1_0_parser.py# ★
-│   │   │   ├── ofproto_v1_2.py# ★ 定数定義、oxm_typesの定義
-│   │   │   ├── ofproto_v1_2_parser.py# ★ OFメッセージ、アクション、インストラクション、マッチフィールド　のクラス（serialize & parser）
-│   │   │   ├── ofproto_v1_3.py# ★
-│   │   │   ├── ofproto_v1_3_parser.py# ★
-│   │   │   ├── ofproto_v1_4.py# ★
-│   │   │   ├── ofproto_v1_4_parser.py# ★
-│   │   │   └── oxm_fields.py# ★
+│   │   │   ├── ofproto_common.py# ★ デフォルトの定数定義少し。OK
+│   │   │   ├── ofproto_parser.py# ★　msg_parser関数(buf->msg) OK＠重要
+│   │   │   ├── ofproto_protocol.py# ★ Appの対応OFバージョンの設定＠重要
+│   │   │   ├── ofproto_v1_0.py
+│   │   │   ├── ofproto_v1_0_parser.py
+│   │   │   ├── ofproto_v1_2.py
+                    # ★ 定数定義、oxm_typesの定義
+│   │   │   ├── ofproto_v1_2_parser.py
+                    # OFメッセージ、アクション、インストラクション、マッチフィールド　のクラス（serialize & parser）＠重要
+                    #　→役割は　OF受信時のparser と　OF送信時のインスタンス化
+                    # bufからmsgの形式にparseするためのparser定義。parser一覧管理用の辞書定義。
+                    # と
+                    # send_msg()に引数として与えるためのクラス定義一覧
+                    # msgインスタンスのクラス定義（ver毎）
+│   │   │   ├── ofproto_v1_3.py
+│   │   │   ├── ofproto_v1_3_parser.py
+│   │   │   ├── ofproto_v1_4.py
+│   │   │   ├── ofproto_v1_4_parser.py
+│   │   │   └── oxm_fields.py# ★ofprot_v1_x.pyのみで利用。
+                    #oxm_types配列中の
+                    #oxm_fields.OpenFlowBasic('in_port', 0, oxm_fields.Int4),
+                    #のように、OpenFlowBasicクラスを定義するためのモジュール。
+#    OpenFlowBasicクラスのメンバは以下
+#        self.name = name　※　'in_port' などの文字列
+#        self.oxm_type = num | (self._class << 7)　※　0　などの固定値をシフトさせた値
+#        self.type = type_　※　IntDescr()クラス to_user flom_user でバイナリなり値なりを返す
+#        self.num(=self.oxm_type)
 │   │   ├── services
 │   │   │   ├── __init__.py
 │   │   │   └── protocols

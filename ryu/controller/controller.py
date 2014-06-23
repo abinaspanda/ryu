@@ -72,7 +72,7 @@ class OpenFlowController(object):
         # LOG.debug('call')
         self.server_loop()
 
-	# Server_LOOP
+    # Server_LOOP
     def server_loop(self):
         if CONF.ctl_privkey is not None and CONF.ctl_cert is not None:
             if CONF.ca_certs is not None:
@@ -146,22 +146,29 @@ class Datapath(ofproto_protocol.ProtocolDesc):
 
         count = 0
         while self.is_active:
+            # 1. バッファ取得
             ret = self.socket.recv(required_len)
             if len(ret) == 0:
                 self.is_active = False
                 break
             buf += ret
             while len(buf) >= required_len:
+                # ２. アンパック
                 (version, msg_type, msg_len, xid) = ofproto_parser.header(buf)
                 required_len = msg_len
                 if len(buf) < required_len:
                     break
 
+                # ３. ofproto_v1_x_parserのparserメソッドを呼び出してmsg作成
                 msg = ofproto_parser.msg(self,
                                          version, msg_type, msg_len, xid, buf)
                 # LOG.debug('queue msg %s cls %s', msg, msg.__class__)
+
                 if msg:
+                    # ４. ofp_msg_to_ev()でmsgからeventに変換
                     ev = ofp_event.ofp_msg_to_ev(msg)
+
+                    # ５. xxx
                     self.ofp_brick.send_event_to_observers(ev, self.state)
 
                     dispatchers = lambda x: x.callers[ev.__class__].dispatchers

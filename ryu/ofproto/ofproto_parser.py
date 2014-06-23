@@ -29,23 +29,29 @@ from . import ofproto_common
 
 LOG = logging.getLogger('ryu.ofproto.ofproto_parser')
 
-
+#header関数（アサート処理　と　OFヘッダのアンパック処理）
 def header(buf):
+    # asesrt 処理　→　バッファの長さがOFプロトコルヘッダサイズを越えていたとき
     assert len(buf) >= ofproto_common.OFP_HEADER_SIZE
     # LOG.debug('len %d bufsize %d', len(buf), ofproto.OFP_HEADER_SIZE)
+
+    # リターン（buf　→　アンパック結果）
     return struct.unpack_from(ofproto_common.OFP_HEADER_PACK_STR, buffer(buf))
 
 
+# メッセージパーサー群の辞書
 _MSG_PARSERS = {}
 
-
+#メッセージのパーサーの登録
 def register_msg_parser(version):
     def register(msg_parser):
         _MSG_PARSERS[version] = msg_parser
         return msg_parser
+    #関数を返却する。
     return register
 
-
+# controllerモジュールのDatapathインスタンスは、bufを取得したら、まずはこれを実施
+#
 def msg(datapath, version, msg_type, msg_len, xid, buf):
     assert len(buf) >= msg_len
 

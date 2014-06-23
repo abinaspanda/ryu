@@ -105,13 +105,52 @@ LOG = logging.getLogger('ryu.app.ofctl_rest')
 # send a experimeter message
 # POST /stats/experimenter/<dpid>
 
+# クラス一覧
+
+#ofctl_rest.py:109: class StatsController(ControllerBase):
+# →ControllerBaseとは？
+# 　→ryu.app.wsgiで定義されているクラス（ウェブアプリ連携のためのクラス？）
+#
+#ofctl_rest.py:411: class RestStatsApi(app_manager.RyuApp):
+# →アプリ本体、RESTの要求を受信する
+#Found 2 matches for "class ".
+
+# メソッド一覧
+#ofctl_rest.py:109: class StatsController(ControllerBase):
+#                  ▼
+#ofctl_rest.py:120: def __init__(self, req, link, data, **config):
+#ofctl_rest.py:125: def get_dpids(self, req, **_kwargs):
+#ofctl_rest.py:130: def get_desc_stats(self, req, dpid, **_kwargs):
+#ofctl_rest.py:148: def get_flow_stats(self, req, dpid, **_kwargs):
+#ofctl_rest.py:166: def get_port_stats(self, req, dpid, **_kwargs):
+#ofctl_rest.py:184: def get_meter_features(self, req, dpid, **_kwargs):
+#ofctl_rest.py:198: def get_meter_config(self, req, dpid, **_kwargs):
+#ofctl_rest.py:212: def get_meter_stats(self, req, dpid, **_kwargs):
+#ofctl_rest.py:226: def get_group_features(self, req, dpid, **_kwargs):
+#ofctl_rest.py:242: def get_group_desc(self, req, dpid, **_kwargs):
+#ofctl_rest.py:258: def get_group_stats(self, req, dpid, **_kwargs):
+#ofctl_rest.py:276: def delete_flow_entry(self, req, dpid, **_kwargs):
+#ofctl_rest.py:293: def mod_flow_entry(self, req, cmd, **_kwargs):
+#ofctl_rest.py:329: def mod_meter_entry(self, req, cmd, **_kwargs):
+#ofctl_rest.py:364: def mod_group_entry(self, req, cmd, **_kwargs):
+#ofctl_rest.py:399: def send_experimenter(self, req, dpid, **_kwargs):
+# スイッチから各種の値を取得して、返却するためのメソッド
+
+#ofctl_rest.py:411: class RestStatsApi(app_manager.RyuApp):
+#                  ▼
+#ofctl_rest.py:430: def __init__(self, *args, **kwargs):
+#ofctl_rest.py:527: def stats_reply_handler(self, ev):
+#Found 18 matches for "def ".
+
 
 class StatsController(ControllerBase):
+    #初期化、data から　 dpset waiters を取得
     def __init__(self, req, link, data, **config):
         super(StatsController, self).__init__(req, link, data, **config)
         self.dpset = data['dpset']
         self.waiters = data['waiters']
 
+    # コマンドに応じた処理メソッド
     def get_dpids(self, req, **_kwargs):
         dps = self.dpset.dps.keys()
         body = json.dumps(dps)
@@ -121,7 +160,7 @@ class StatsController(ControllerBase):
         dp = self.dpset.get(int(dpid))
         if dp is None:
             return Response(status=404)
-
+        # ofctl_v_x_x のメソッドを叩いて、値を取得
         if dp.ofproto.OFP_VERSION == ofproto_v1_0.OFP_VERSION:
             desc = ofctl_v1_0.get_desc_stats(dp, self.waiters)
         elif dp.ofproto.OFP_VERSION == ofproto_v1_2.OFP_VERSION:
@@ -132,6 +171,7 @@ class StatsController(ControllerBase):
             LOG.debug('Unsupported OF protocol')
             return Response(status=501)
 
+        # json形式から？変換してbodyを取得
         body = json.dumps(desc)
         return (Response(content_type='application/json', body=body))
 
@@ -409,14 +449,17 @@ class StatsController(ControllerBase):
 
 
 class RestStatsApi(app_manager.RyuApp):
+    #APPサポートバージョンを定義
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION,
                     ofproto_v1_2.OFP_VERSION,
                     ofproto_v1_3.OFP_VERSION]
+    #JSONの値であることを示すためのCONETEXTS？定義？★
     _CONTEXTS = {
         'dpset': dpset.DPSet,
         'wsgi': WSGIApplication
     }
 
+    #初期値を設定
     def __init__(self, *args, **kwargs):
         super(RestStatsApi, self).__init__(*args, **kwargs)
         self.dpset = kwargs['dpset']
@@ -428,8 +471,12 @@ class RestStatsApi(app_manager.RyuApp):
         mapper = wsgi.mapper
 
         wsgi.registory['StatsController'] = self.data
+        # URI を作成
         path = '/stats'
         uri = path + '/switches'
+        # controllerを StatsController として、
+        # URIを設定して、処理を実行
+
         mapper.connect('stats', uri,
                        controller=StatsController, action='get_dpids',
                        conditions=dict(method=['GET']))
@@ -504,6 +551,7 @@ class RestStatsApi(app_manager.RyuApp):
                        controller=StatsController, action='send_experimenter',
                        conditions=dict(method=['POST']))
 
+    # 統計リプライ用のハンドラ
     @set_ev_cls([ofp_event.EventOFPStatsReply,
                  ofp_event.EventOFPDescStatsReply,
                  ofp_event.EventOFPFlowStatsReply,
@@ -514,14 +562,21 @@ class RestStatsApi(app_manager.RyuApp):
                  ofp_event.EventOFPGroupStatsReply,
                  ofp_event.EventOFPGroupFeaturesStatsReply,
                  ofp_event.EventOFPGroupDescStatsReply], MAIN_DISPATCHER)
+
     def stats_reply_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath
 
+        # datapath ID が self.waiters に含まれていなかったら
         if dp.id not in self.waiters:
+            # リターン
             return
+        # datapath ID が self.waiters の datapath ID key の value に含まれていなかったら
         if msg.xid not in self.waiters[dp.id]:
+            # リターン
             return
+        # waiters辞書は、{[datapathのkey][xid]=xxx}の構造となっている。
+        #　→waiters は、リプライ待ちしている xid 群 をキーとしたxx★
         lock, msgs = self.waiters[dp.id][msg.xid]
         msgs.append(msg)
 

@@ -54,7 +54,7 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
         #　name は'ofp_event'
         self.name = 'ofp_event'
 
-	# 内部メソッドではない
+    # 内部メソッドではない
     def start(self):
         super(OFPHandler, self).start()
         #OpenFlowControllerクラスをサブスレッドで開始
@@ -62,6 +62,9 @@ class OFPHandler(ryu.base.app_manager.RyuApp):
 
     def _hello_failed(self, datapath, error_desc):
         self.logger.error(error_desc)
+        # set_version で事前に取得済みの
+        # ofproto_v1_3_parser　など　のクラスがインスタンス化される。
+        # ↓OFPErrorMsgクラスをインスタンス化してメッセージ送信
         error_msg = datapath.ofproto_parser.OFPErrorMsg(datapath)
         error_msg.type = datapath.ofproto.OFPET_HELLO_FAILED
         error_msg.code = datapath.ofproto.OFPHFC_INCOMPATIBLE

@@ -44,7 +44,8 @@ class _Caller(object):
         self.dispatchers = dispatchers
         self.ev_source = ev_source
 
-
+# 重要＠イベント設定クラス
+# →アプリのハンドラのデコレータとして定義されている。
 # should be named something like 'observe_event'
 def set_ev_cls(ev_cls, dispatchers=None):
     def _set_ev_cls_dec(handler):
