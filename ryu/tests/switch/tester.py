@@ -39,6 +39,7 @@ for modname, moddef in sys.modules.iteritems():
         exec 'from %s import %s' % (modname, clsname)
 
 from ryu.base import app_manager
+from ryu.controller import dpset
 from ryu.controller import handler
 from ryu.controller import ofp_event
 from ryu.controller.handler import set_ev_cls
@@ -104,6 +105,7 @@ KEY_PREREQ = 'prerequisite'
 KEY_FLOW = 'OFPFlowMod'
 KEY_METER = 'OFPMeterMod'
 KEY_GROUP = 'OFPGroupMod'
+KEY_PORT = 'OFPPortMod'
 KEY_TESTS = 'tests'
 KEY_INGRESS = 'ingress'
 KEY_EGRESS = 'egress'
@@ -116,6 +118,7 @@ KEY_PKTPS = 'pktps'
 KEY_DURATION_TIME = 'duration_time'
 KEY_THROUGHPUT = 'throughput'
 KEY_MATCH = 'OFPMatch'
+KEY_CLEANUP = 'cleanup'
 
 # Test state.
 STATE_INIT_FLOW = 0
@@ -139,6 +142,7 @@ STATE_THROUGHPUT_CHK = 17
 STATE_INIT_GROUP = 18
 STATE_GROUP_INSTALL = 19
 STATE_GROUP_EXIST_CHK = 20
+STATE_PORT_MOD = 21
 
 STATE_DISCONNECTED = 99
 
@@ -221,6 +225,9 @@ MSG = {STATE_INIT_FLOW:
         RCV_ERR: 'Failed to request flow stats: %(err_msg)s'},
        STATE_THROUGHPUT_CHK:
        {FAILURE: 'Received unexpected throughput: %(detail)s'},
+       STATE_PORT_MOD:
+       {TIMEOUT: 'Failed to modify port stat: barrier request timeout.',
+        RCV_ERR: 'Failed to modify port stat: %(err_msg)s'},
        STATE_DISCONNECTED:
        {ERROR: 'Disconnected from switch'}}
 
@@ -257,12 +264,14 @@ class TestError(TestMessageBase):
 class OfTester(app_manager.RyuApp):
     """ OpenFlow Switch Tester. """
 
+    _CONTEXTS = {'dpset': dpset.DPSet}
     tester_ver = None
     target_ver = None
 
-    def __init__(self):
-        super(OfTester, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(OfTester, self).__init__(*args, **kwargs)
         self._set_logger()
+        self.dpset = kwargs['dpset']
 
         self.target_dpid = self._convert_dpid(CONF['test-switch']['target'])
         self.tester_dpid = self._convert_dpid(CONF['test-switch']['tester'])
@@ -433,9 +442,11 @@ class OfTester(app_manager.RyuApp):
         # Test execute.
         try:
             # Initialize.
-            self._test(STATE_INIT_METER)
-            self._test(STATE_INIT_GROUP)
-            self._test(STATE_INIT_FLOW, self.target_sw)
+            if test.prerequisite:
+                self._test(STATE_INIT_METER)
+                self._test(STATE_INIT_GROUP)
+                self._test(STATE_INIT_FLOW, self.target_sw)
+            # Tester_sw is initialized anytime.
             self._test(STATE_INIT_THROUGHPUT_FLOW, self.tester_sw,
                        THROUGHPUT_COOKIE)
             # Install flows.
@@ -518,6 +529,26 @@ class OfTester(app_manager.RyuApp):
                 hub.kill(tid)
             self.ingress_threads = []
 
+            # Do clean up.
+            try:
+                for mod in test.cleanup:
+                    key, value = mod.popitem()
+                    cls = getattr(self.tester_sw.dp.ofproto_parser, key)
+                    msg = cls.from_jsondict(value, datapath=self.tester_sw.dp)
+                    port_info = self.dpset.port_state[
+                        self.tester_sw.dp.id].get(msg.port_no)
+                    if port_info is not None:
+                        msg.hw_addr = port_info.hw_addr
+                        msg.advertise = port_info.advertised
+                    self._test(STATE_PORT_MOD, self.tester_sw, msg)
+            except (TestFailure, TestError,
+                    TestTimeout, TestReceiveError) as err:
+                result = [TEST_ERROR, str(err)]
+                result_type = str(err).split(':', 1)[0]
+            except Exception:
+                result = [TEST_ERROR, RYU_INTERNAL_ERROR]
+                result_type = RYU_INTERNAL_ERROR
+
         # Output test result.
         self.logger.info('    %-100s %s', test.description, result[0])
         if 1 < len(result):
@@ -574,7 +605,8 @@ class OfTester(app_manager.RyuApp):
                 STATE_SEND_BARRIER: self._test_send_barrier,
                 STATE_FLOW_UNMATCH_CHK: self._test_flow_unmatching_check,
                 STATE_GET_THROUGHPUT: self._test_get_throughput,
-                STATE_THROUGHPUT_CHK: self._test_throughput_check}
+                STATE_THROUGHPUT_CHK: self._test_throughput_check,
+                STATE_PORT_MOD: self._test_msg_install}
 
         self.send_msg_xids = []
         self.rcv_msgs = []
@@ -1093,7 +1125,8 @@ class OfTester(app_manager.RyuApp):
                       STATE_THROUGHPUT_FLOW_INSTALL,
                       STATE_METER_INSTALL,
                       STATE_GROUP_INSTALL,
-                      STATE_SEND_BARRIER]
+                      STATE_SEND_BARRIER,
+                      STATE_PORT_MOD]
         if self.state in state_list:
             if self.waiter and ev.msg.xid in self.send_msg_xids:
                 self.rcv_msgs.append(ev.msg)
@@ -1293,7 +1326,8 @@ class Test(stringify.StringifyMixin):
         super(Test, self).__init__()
         (self.description,
          self.prerequisite,
-         self.tests) = self._parse_test(test_json)
+         self.tests,
+         self.cleanup) = self._parse_test(test_json)
 
     def _parse_test(self, buf):
         def __test_pkt_from_json(test):
@@ -1337,55 +1371,57 @@ class Test(stringify.StringifyMixin):
 
         # parse 'prerequisite'
         prerequisite = []
-        if KEY_PREREQ not in buf:
-            raise ValueError('a test requires a "%s" block' % KEY_PREREQ)
-        allowed_mod = [KEY_FLOW, KEY_METER, KEY_GROUP]
-        for flow in buf[KEY_PREREQ]:
-            key, value = flow.popitem()
-            if key not in allowed_mod:
-                raise ValueError(
-                    '"%s" block allows only the followings: %s' % (
-                        KEY_PREREQ, allowed_mod))
-            cls = getattr(target_parser, key)
-            msg = cls.from_jsondict(value, datapath=target_dp)
-            msg.version = target_ofproto.OFP_VERSION
-            msg.msg_type = msg.cls_msg_type
-            msg.xid = 0
-            if isinstance(msg, target_parser.OFPFlowMod):
-                # normalize OFPMatch
-                msg.match = __normalize_match(target_ofproto, msg.match)
-                # normalize OFPActionSetField
-                insts = []
-                for inst in msg.instructions:
-                    if isinstance(inst, target_parser.OFPInstructionActions):
+        if KEY_PREREQ in buf:
+            allowed_mod = [KEY_FLOW, KEY_METER, KEY_GROUP]
+            for flow in buf[KEY_PREREQ]:
+                key, value = flow.popitem()
+                if key not in allowed_mod:
+                    raise ValueError(
+                        '"%s" block allows only the followings: %s' % (
+                            KEY_PREREQ, allowed_mod))
+                cls = getattr(target_parser, key)
+                msg = cls.from_jsondict(value, datapath=target_dp)
+                msg.version = target_ofproto.OFP_VERSION
+                msg.msg_type = msg.cls_msg_type
+                msg.xid = 0
+                if isinstance(msg, target_parser.OFPFlowMod):
+                    # normalize OFPMatch
+                    msg.match = __normalize_match(target_ofproto, msg.match)
+                    # normalize OFPActionSetField
+                    insts = []
+                    for inst in msg.instructions:
+                        if isinstance(
+                                inst, target_parser.OFPInstructionActions):
+                            acts = []
+                            for act in inst.actions:
+                                if isinstance(
+                                        act, target_parser.OFPActionSetField):
+                                    act = __normalize_action(
+                                        target_ofproto, act)
+                                acts.append(act)
+                            inst = target_parser.OFPInstructionActions(
+                                inst.type, actions=acts)
+                        insts.append(inst)
+                    msg.instructions = insts
+                elif isinstance(msg, target_parser.OFPGroupMod):
+                    # normalize OFPActionSetField
+                    buckets = []
+                    for bucket in msg.buckets:
                         acts = []
-                        for act in inst.actions:
+                        for act in bucket.actions:
                             if isinstance(
                                     act, target_parser.OFPActionSetField):
                                 act = __normalize_action(target_ofproto, act)
                             acts.append(act)
-                        inst = target_parser.OFPInstructionActions(
-                            inst.type, actions=acts)
-                    insts.append(inst)
-                msg.instructions = insts
-            elif isinstance(msg, target_parser.OFPGroupMod):
-                # normalize OFPActionSetField
-                buckets = []
-                for bucket in msg.buckets:
-                    acts = []
-                    for act in bucket.actions:
-                        if isinstance(act, target_parser.OFPActionSetField):
-                            act = __normalize_action(target_ofproto, act)
-                        acts.append(act)
-                    bucket = target_parser.OFPBucket(
-                        weight=bucket.weight,
-                        watch_port=bucket.watch_port,
-                        watch_group=bucket.watch_group,
-                        actions=acts)
-                    buckets.append(bucket)
-                msg.buckets = buckets
-            msg.serialize()
-            prerequisite.append(msg)
+                        bucket = target_parser.OFPBucket(
+                            weight=bucket.weight,
+                            watch_port=bucket.watch_port,
+                            watch_group=bucket.watch_group,
+                            actions=acts)
+                        buckets.append(bucket)
+                    msg.buckets = buckets
+                msg.serialize()
+                prerequisite.append(msg)
 
         # parse 'tests'
         tests = []
@@ -1453,11 +1489,28 @@ class Test(stringify.StringifyMixin):
 
             tests.append(test_pkt)
 
-        return (description, prerequisite, tests)
+        # parse 'cleanup'
+        cleanup = []
+        if KEY_CLEANUP in buf:
+            allowed_mod = [KEY_PORT]
+            for one in buf[KEY_CLEANUP]:
+                key, value = one.popitem()
+                if key not in allowed_mod:
+                    raise ValueError(
+                        '"%s" block allows only the followings: %s' % (
+                            KEY_CLEANUP, allowed_mod))
+                # parse for checking format
+                cls = getattr(tester_parser, key)
+                msg = cls.from_jsondict(value, datapath=tester_dp)
+                # append original JSON text
+                cleanup.append({key: value})
+
+        return (description, prerequisite, tests, cleanup)
 
 
 class DummyDatapath(object):
     def __init__(self):
+        self.id = 0
         self.ofproto = ofproto_v1_3
         self.ofproto_parser = ofproto_v1_3_parser
 
