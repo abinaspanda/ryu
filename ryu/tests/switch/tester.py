@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import binascii
+import difflib
 import inspect
 import json
 import logging
@@ -926,42 +927,51 @@ class OfTester(app_manager.RyuApp):
             return True, None
 
     def _diff_packets(self, model_pkt, rcv_pkt):
-        msg = []
-        for rcv_p in rcv_pkt.protocols:
-            if type(rcv_p) != str:
-                model_protocols = model_pkt.get_protocols(type(rcv_p))
-                if len(model_protocols) == 1:
-                    model_p = model_protocols[0]
-                    diff = []
-                    for attr in rcv_p.__dict__:
-                        if attr.startswith('_'):
-                            continue
-                        if callable(attr):
-                            continue
-                        if hasattr(rcv_p.__class__, attr):
-                            continue
-                        rcv_attr = repr(getattr(rcv_p, attr))
-                        model_attr = repr(getattr(model_p, attr))
-                        if rcv_attr != model_attr:
-                            diff.append('%s=%s' % (attr, rcv_attr))
-                    if diff:
-                        msg.append('%s(%s)' %
-                                   (rcv_p.__class__.__name__,
-                                    ','.join(diff)))
-                else:
-                    if (not model_protocols or
-                            not str(rcv_p) in str(model_protocols)):
-                        msg.append(str(rcv_p))
+
+        def __get_list(obj, prefix=None):
+            result = []
+            if isinstance(obj, packet.Packet):
+                for proto in obj.protocols:
+                    result.extend(__get_list(proto))
+            elif isinstance(obj, list):
+                count = 0
+                for proto in obj:
+                    result.extend(__get_list(
+                        proto, '{0}[{1}]'.format(prefix, count)))
+                    count += 1
+            elif hasattr(obj, '__dict__'):
+                for attr in sorted(obj.__dict__):
+                    if attr.startswith('_'):
+                        continue
+                    if callable(attr):
+                        continue
+                    if hasattr(obj.__class__, attr):
+                        continue
+                    name = prefix if prefix else obj.__class__.__name__
+                    proto_attr = getattr(obj, attr)
+                    if hasattr(proto_attr, '__dict__') or \
+                            isinstance(proto_attr, list):
+                        result.extend(__get_list(
+                            proto_attr, '{0}.{1}'.format(name, attr)))
+                    else:
+                        result.append('{0}.{1}={2}'.format(
+                            name, attr, repr(proto_attr)))
             else:
-                model_p = ''
-                for p in model_pkt.protocols:
-                    if type(p) == str:
-                        model_p = p
-                        break
-                if model_p != rcv_p:
-                    msg.append('str(%s)' % repr(rcv_p))
-        if msg:
-            return '/'.join(msg)
+                result.append('str({0})'.format(repr(obj)))
+            return result
+
+        model_pkt_list = __get_list(model_pkt)
+        rcv_pkt_list = __get_list(rcv_pkt)
+        self.logger.info(model_pkt)
+        self.logger.info(model_pkt_list)
+        diff = difflib.unified_diff(model_pkt_list, rcv_pkt_list)
+        difflines = []
+        for line in diff:
+            self.logger.info(line)
+            if not line.startswith('+++') and line.startswith('+'):
+                difflines.append(line[1:])
+        if difflines:
+            return ','.join(difflines)
         else:
             return ('Encounter an error during packet comparison.'
                     ' it is malformed.')
