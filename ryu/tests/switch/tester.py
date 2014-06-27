@@ -97,6 +97,8 @@ THROUGHPUT_THRESHOLD = float(0.10)  # expected throughput plus/minus 10 %
 # Default settings for 'ingress: packets'
 DEFAULT_DURATION_TIME = 30
 DEFAULT_PKTPS = 1000
+DEFAULT_SEND_DURATION = DEFAULT_DURATION_TIME
+DEFAULT_REST_DURATION = 0
 
 # Test file format.
 KEY_DESC = 'description'
@@ -114,6 +116,8 @@ KEY_DATA = 'data'
 KEY_KBPS = 'kbps'
 KEY_PKTPS = 'pktps'
 KEY_DURATION_TIME = 'duration_time'
+KEY_SEND_DURATION = 'send_duration_time'
+KEY_REST_DURATION = 'rest_duration_time'
 KEY_THROUGHPUT = 'throughput'
 KEY_MATCH = 'OFPMatch'
 
@@ -787,6 +791,10 @@ class OfTester(app_manager.RyuApp):
         pktps = pkt[KEY_PACKETS][KEY_PKTPS]
         duration_time = pkt[KEY_PACKETS][KEY_DURATION_TIME]
         randomize = pkt[KEY_PACKETS]['randomize']
+        send_duration = int(pkt[KEY_PACKETS][KEY_SEND_DURATION] /
+                            CONTINUOUS_THREAD_INTVL)
+        rest_duration = int(pkt[KEY_PACKETS][KEY_REST_DURATION] /
+                            CONTINUOUS_THREAD_INTVL)
 
         self.logger.debug("send_packet:[%s]", packet.Packet(pkt_bin))
         self.logger.debug("pktps:[%d]", pktps)
@@ -799,7 +807,11 @@ class OfTester(app_manager.RyuApp):
                                CONTINUOUS_THREAD_INTVL),
                'packet_counter': float(0),
                'packet_counter_inc': pktps * CONTINUOUS_THREAD_INTVL,
-               'randomize': randomize}
+               'randomize': randomize,
+               KEY_SEND_DURATION: send_duration,
+               KEY_REST_DURATION: rest_duration,
+               'send_rest_counter': 0,
+               'sending_flag': True}
 
         try:
             self.ingress_event = hub.Event()
@@ -832,9 +844,26 @@ class OfTester(app_manager.RyuApp):
 
         hub.sleep(CONTINUOUS_THREAD_INTVL)
 
+        arg['send_rest_counter'] += 1
+        if arg['sending_flag']:
+            # compare with send_duration
+            if arg['send_rest_counter'] > arg[KEY_SEND_DURATION]:
+                arg['send_rest_counter'] = 0
+                if arg[KEY_REST_DURATION]:
+                    arg['sending_flag'] = False
+        else:
+            # compare with rest_duration
+            if arg['send_rest_counter'] > arg[KEY_REST_DURATION]:
+                arg['send_rest_counter'] = 0
+                arg['sending_flag'] = True
+
         tid = hub.spawn(self._send_packet_thread, arg)
         self.ingress_threads.append(tid)
         hub.sleep(0)
+
+        if not arg['sending_flag']:
+            return
+
         for _ in range(count):
             if arg['randomize']:
                 msg = eval('/'.join(arg['packet_text']))
@@ -1415,7 +1444,15 @@ class Test(stringify.StringifyMixin):
                         KEY_PKTPS, DEFAULT_PKTPS),
                     'randomize': True in [
                         line.find('randint') != -1
-                        for line in test[KEY_INGRESS][KEY_PACKETS][KEY_DATA]]}
+                        for line in test[KEY_INGRESS][KEY_PACKETS][KEY_DATA]],
+                    KEY_SEND_DURATION: test[KEY_INGRESS][KEY_PACKETS].get(
+                        KEY_SEND_DURATION, DEFAULT_SEND_DURATION),
+                    KEY_REST_DURATION: test[KEY_INGRESS][KEY_PACKETS].get(
+                        KEY_REST_DURATION, DEFAULT_REST_DURATION)}
+                if not test_pkt[KEY_PACKETS][KEY_SEND_DURATION]:
+                    raise ValueError(
+                        '"%s" requires non-zero value.' % (
+                            KEY_SEND_DURATION))
             else:
                 raise ValueError('invalid format: "%s" field' % KEY_INGRESS)
             # parse 'egress' or 'PACKET_IN' or 'table-miss'
