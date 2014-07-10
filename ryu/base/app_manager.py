@@ -54,6 +54,7 @@ def _lookup_service_brick_by_mod_name(mod_name):
     return lookup_service_brick(mod_name.split('.')[-1])
 
 
+# handler.pyのメソッドを使ってアプリを登録する
 def register_app(app):
     assert isinstance(app, RyuApp)
     assert app.name not in SERVICE_BRICKS
@@ -181,6 +182,7 @@ class RyuApp(object):
         self._send_event(self._event_stop, None)
         hub.joinall(self.threads)
 
+    # ハンドラ登録（辞書に新たに組み合わせ登録）
     def register_handler(self, ev_cls, handler):
         assert callable(handler)
         self.event_handlers.setdefault(ev_cls, [])
@@ -215,6 +217,7 @@ class RyuApp(object):
         if brick is not None:
             brick.unregister_observer(ev_cls, self.name)
 
+    # ハンドラ取得
     def get_handlers(self, ev, state=None):
         """Returns a list of handlers for the specific event.
 
@@ -444,6 +447,8 @@ class AppManager(object):
         if app_name is not None:
             assert app_name not in self.applications
         app = cls(*args, **kwargs)
+        #このアプリを登録
+        #→
         register_app(app)
         assert app.name not in self.applications
         self.applications[app.name] = app

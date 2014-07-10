@@ -78,12 +78,14 @@ def _listify(may_list):
         may_list = [may_list]
     return may_list
 
-
+#重要
 def register_instance(i):
     for _k, m in inspect.getmembers(i, inspect.ismethod):
-        # LOG.debug('instance %s k %s m %s', i, _k, m)
+        LOG.debug('instance %s k %s m %s', i, _k, m)
         if _has_caller(m):
             for ev_cls, c in m.callers.iteritems():
+                # アプリが保持しているイベント：ハンドラ　の辞書
+                # に新たに組み合わせを登録する。
                 i.register_handler(ev_cls, m)
 
 
