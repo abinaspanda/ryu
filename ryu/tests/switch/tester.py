@@ -632,6 +632,7 @@ class OfTester(app_manager.RyuApp):
                             STATE_TESTER_PKT_COUNT, False))
                         test_type = (KEY_EGRESS if KEY_EGRESS in pkt
                                      else KEY_PKT_IN)
+                        #パケットインを取得できなかった理由のチェック
                         self._test(STATE_NO_PKTIN_REASON, test_type,
                                    target_pkt_count, tester_pkt_count)
                 # -----------------------------------
@@ -924,15 +925,30 @@ class OfTester(app_manager.RyuApp):
     #★
     def _test_no_pktin_reason_check(self, test_type,
                                     target_pkt_count, tester_pkt_count):
+        #test_type:いろいろ
+        #target_pkt_count:ターゲット　の　ポート統計を取得
+        #tester_pkt_count:補助SW　の　ポート統計を取得
+        #------------------------------------------------------------------------------------
         before_target_receive = target_pkt_count[0][TARGET_RECEIVE_PORT]['rx']
+        #                       ターゲット　　　０　ターゲットの受信port
         before_target_send = target_pkt_count[0][TARGET_SENDER_PORT]['tx']
+        #                       ターゲット　　　０　ターゲットの送信port
+        #------------------------------------------------------------------------------------
         before_tester_receive = tester_pkt_count[0][TESTER_RECEIVE_PORT]['rx']
+        #                       テスター　　　　０　テスターの受信port
         before_tester_send = tester_pkt_count[0][TESTER_SENDER_PORT]['tx']
+        #                       テスター　　　　０　テスターの送信port
+        #------------------------------------------------------------------------------------
         after_target_receive = target_pkt_count[1][TARGET_RECEIVE_PORT]['rx']
+        #                       ターゲット　　　１　ターゲットの受信port
         after_target_send = target_pkt_count[1][TARGET_SENDER_PORT]['tx']
+        #                       ターゲット　　　１　ターゲットの送信port
+        #------------------------------------------------------------------------------------
         after_tester_receive = tester_pkt_count[1][TESTER_RECEIVE_PORT]['rx']
+        #                       テスター　　　　１　テスターの受信port
         after_tester_send = tester_pkt_count[1][TESTER_SENDER_PORT]['tx']
-
+        #                       テスター　　　　１　テスターの送信port
+        #------------------------------------------------------------------------------------
         if after_tester_send == before_tester_send:
             log_msg = 'no change in tx_packets on tester.'
         elif after_target_receive == before_target_receive:
@@ -941,9 +957,9 @@ class OfTester(app_manager.RyuApp):
             if after_target_send == before_target_send:
                 log_msg = 'no change in tx_packets on target.'
             elif after_tester_receive == before_tester_receive:
-                log_msg = 'no change in rx_packets on tester.'
             else:
                 log_msg = 'increment in rx_packets in tester.'
+                log_msg = 'no change in rx_packets on tester.'
         else:
             assert test_type == KEY_PKT_IN
             log_msg = 'no packet-in.'
