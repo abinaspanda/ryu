@@ -115,6 +115,17 @@ from ryu.ofproto import ofproto_v1_3_parser
 
 """
 
+
+#action: 11_COPY_TTL_OUT
+    #ethernet/mpls(ttl=64)/ipv4(ttl=32)/tcp-->'eth_type=0x8847,actions=copy_ttl_out,output:2'             ERROR
+        #Receiving timeout: no change in tx_packets on target.
+    #ethernet/mpls(ttl=64)/ipv6(hop_limit=32)/tcp-->'eth_type=0x8847,actions=copy_ttl_out,output:2'       ERROR
+        #Receiving timeout: no change in rx_packtes on target.
+#テストの例
+
+#
+
+
 # 1. コマンドライン或いはCONFからターゲットバージョン取得
 #+        target_opt = CONF['test-switch']['target_version']
 # 2. VERSION変数を取得
@@ -256,6 +267,9 @@ MSG = {STATE_INIT_FLOW:
         RCV_ERR: 'Failed to request port stats from tester: %(err_msg)s'},
        STATE_FLOW_MATCH_CHK:
        {FAILURE: 'Received incorrect %(pkt_type)s: %(detail)s',
+                #フローマッチチェックの結果、エラーだった場合
+                # ↑DPID、パケットイン理由、データ内容が期待と異なる
+
         TIMEOUT: '',  # for check no packet-in reason.
         RCV_ERR: 'Failed to send packet: %(err_msg)s'},
        STATE_NO_PKTIN_REASON:
@@ -958,16 +972,20 @@ class OfTester(app_manager.RyuApp):
         #　テスト後＠補助SWの送信　＝　テスト前＠補助SWの送信
         if after_tester_send == before_tester_send:
             log_msg = 'no change in tx_packets on tester.'
-            # そもそも、補助SWからパケットがとんでいない？
+            #　１．そもそも、補助SWからパケットがとんでいない
         elif after_target_receive == before_target_receive:
             log_msg = 'no change in rx_packtes on target.'
+            #　２．ターゲットがパケットを受信できていない
         elif test_type == KEY_EGRESS:
             if after_target_send == before_target_send:
+                #　３．ターゲットがパケットを返却できていない
                 log_msg = 'no change in tx_packets on target.'
             elif after_tester_receive == before_tester_receive:
-            else:
-                log_msg = 'increment in rx_packets in tester.'
+                #　４．補助SWがパケットを受信できていない
                 log_msg = 'no change in rx_packets on tester.'
+            else:
+                #　異常？？
+                log_msg = 'increment in rx_packets in tester.'
         else:
             assert test_type == KEY_PKT_IN
             log_msg = 'no packet-in.'
@@ -1316,7 +1334,7 @@ class OfTester(app_manager.RyuApp):
                 # ちがったら、メッセージにアペンド
                 if model_p != rcv_p:
                     msg.append('str(%s)' % repr(rcv_p))
-        # msgをリターン（エラー有無に関わらず）
+        # msgをリターン（エラー有無に関わらず）→msgが異なる部分
         if msg:
             return '/'.join(msg)
         else:

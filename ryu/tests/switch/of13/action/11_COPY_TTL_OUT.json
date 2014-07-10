@@ -1,7 +1,55 @@
 [
     "action: 11_COPY_TTL_OUT",
+    #　★　ファイルのデスクリプション
     {
         "description": "ethernet/mpls(ttl=64)/ipv4(ttl=32)/tcp-->'eth_type=0x8847,actions=copy_ttl_out,output:2'",
+        #　　　　　　　　　　　　↑送信するパケットイメージ　　　　　　　　マッチ　　　　　　　　　　　　　　　アクション
+        #　　１．prerequisiteのフローを書き込んで
+        #　　２．印加パケットを補助SWから似送信
+        #　　３．補助SWに書き込まれているフローを使ってターゲットSWに転送
+        #　　４．ターゲットSWのフローに従って、パケットがUターン　（ポート１で受信して、処理して、ポート２から出力）
+        #　　５．補助SWに書き込まれているフローを使ってコントローラに転送
+        #　　６．コントローラで結果を確認
+        #
+        #　★　テストのデスクリプション
+
+ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+--- Test start ---
+
+match: 29_ICMPV6_TYPE
+　　★マッチ条件の「icmpv6_type=128」は変更せずに、
+　　　　「アクションのバリエーション（output/コントローラ）」「パケットのバリエーション」を変える。
+    ethernet/ipv6/icmpv6(type=128)-->'icmpv6_type=128,actions=output:2'               OK
+       ↑のパケットを送信　　　　　　　　　　　　　↑　output 2 なのでUターンするパケット
+    ethernet/ipv6/icmpv6(type=128)-->'icmpv6_type=128,actions=output:CONTROLLER'      OK
+    　↑のパケットを送信　　　　　　　　　　　　　↑　コントローラへ直パケット員
+    ethernet/ipv6/icmpv6(type=135)-->'icmpv6_type=128,actions=output:2'               OK
+    ethernet/vlan/ipv6/icmpv6(type=128)-->'icmpv6_type=128,actions=output:2'          ERROR
+    　↑ipv6ではなく、vlanのipv6を試した場合
+        Received incorrect packet-in: ethernet(ethertype=34525)
+        ★誤ったパケット員を取得
+    ethernet/vlan/ipv6/icmpv6(type=128)-->'icmpv6_type=128,actions=output:CONTROLLER' ERROR
+        Received incorrect packet-in: ethernet(ethertype=34525)
+match: 30_ICMPV6_CODE
+    ethernet/ipv6/icmpv6(code=0)-->'icmpv6_code=0,actions=output:2'                   OK
+    ethernet/ipv6/icmpv6(code=0)-->'icmpv6_code=0,actions=output:CONTROLLER'          OK
+    ethernet/ipv6/icmpv6(code=1)-->'icmpv6_code=0,actions=output:2'                   OK
+    ethernet/vlan/ipv6/icmpv6(code=0)-->'icmpv6_code=0,actions=output:2'              ERROR
+        Received incorrect packet-in: ethernet(ethertype=34525)
+    ethernet/vlan/ipv6/icmpv6(code=0)-->'icmpv6_code=0,actions=output:CONTROLLER'     ERROR
+        Received incorrect packet-in: ethernet(ethertype=34525)
+
+---  Test end  ---
+
+--- Test report ---
+Received incorrect packet-in(4)
+    match: 29_ICMPV6_TYPE                    ethernet/vlan/ipv6/icmpv6(type=128)-->'icmpv6_type=128,actions=output:2'
+    match: 29_ICMPV6_TYPE                    ethernet/vlan/ipv6/icmpv6(type=128)-->'icmpv6_type=128,actions=output:CONTROLLER'
+    match: 30_ICMPV6_CODE                    ethernet/vlan/ipv6/icmpv6(code=0)-->'icmpv6_code=0,actions=output:2'
+    match: 30_ICMPV6_CODE                    ethernet/vlan/ipv6/icmpv6(code=0)-->'icmpv6_code=0,actions=output:CONTROLLER'
+
+OK(6) / ERROR(4)
+ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
         "prerequisite":[
             {
                 "OFPFlowMod":{
@@ -38,20 +86,22 @@
                 }
             }
         ],
+        # ★ここからがテスト内容
         "tests":[
             {
+                # ★印加パケットの内容
                 "ingress":[
-                    "ethernet(dst='22:22:22:22:22:22', src='12:11:11:11:11:11', ethertype=34887)",
-                    "mpls(bsb=1, label=100, exp=3, ttl=64)",
-                    "ipv4(tos=32, proto=6, src='192.168.10.10', dst='192.168.20.20', ttl=32)",
-                    "tcp(dst_port=2222, option=str('\\x00' * 4), src_port=11111)",
-                    "'\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\t\\n\\x0b\\x0c\\r\\x0e\\x0f\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f'"
+                    "ethernet(dst='22:22:22:22:22:22', src='12:11:11:11:11:11', ethertype=34887)",　★イーサネット
+                    "mpls(bsb=1, label=100, exp=3, ttl=64)",                                        ★MPLS
+                    "ipv4(tos=32, proto=6, src='192.168.10.10', dst='192.168.20.20', ttl=32)",      ★IPv4
+                    "tcp(dst_port=2222, option=str('\\x00' * 4), src_port=11111)",                  ★TCP
+                    "'\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\t\\n\\x0b\\x0c\\r\\x0e\\x0f\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f'"　★データは適当に
                 ],
                 "egress":[
-                    "ethernet(dst='22:22:22:22:22:22', src='12:11:11:11:11:11', ethertype=34887)",
-                    "mpls(bsb=1, label=100, exp=3, ttl=32)",
-                    "ipv4(tos=32, proto=6, src='192.168.10.10', dst='192.168.20.20', ttl=32)",
-                    "tcp(dst_port=2222, option=str('\\x00' * 4), src_port=11111)",
+                    "ethernet(dst='22:22:22:22:22:22', src='12:11:11:11:11:11', ethertype=34887)",  ★上と同じ
+                    "mpls(bsb=1, label=100, exp=3, ttl=32)",                                        ★TTLだけ減算
+                    "ipv4(tos=32, proto=6, src='192.168.10.10', dst='192.168.20.20', ttl=32)",      ★同じ
+                    "tcp(dst_port=2222, option=str('\\x00' * 4), src_port=11111)",                  ★同じ
                     "'\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\t\\n\\x0b\\x0c\\r\\x0e\\x0f\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f'"
                 ]
             }
@@ -102,14 +152,14 @@
                     "mpls(bsb=1, label=100, exp=3, ttl=64)",
                     "ipv6(dst='20::20', flow_label=100, src='10::10', nxt=6, hop_limit=32, traffic_class=32)",
                     "tcp(dst_port=2222, option=str('\\x00' * 4), src_port=11111)",
-                    "'\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\t\\n\\x0b\\x0c\\r\\x0e\\x0f\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f'"
+                    "'\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\t\\n\\x0b\\x0c\\r\\x0e\\x0f\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f'"★同じ
                 ],
                 "egress":[
                     "ethernet(dst='22:22:22:22:22:22', src='12:11:11:11:11:11', ethertype=34887)",
                     "mpls(bsb=1, label=100, exp=3, ttl=32)",
                     "ipv6(dst='20::20', flow_label=100, src='10::10', nxt=6, hop_limit=32, traffic_class=32)",
                     "tcp(dst_port=2222, option=str('\\x00' * 4), src_port=11111)",
-                    "'\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\t\\n\\x0b\\x0c\\r\\x0e\\x0f\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f'"
+                    "'\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\t\\n\\x0b\\x0c\\r\\x0e\\x0f\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f'"★同じ
                 ]
             }
         ]
