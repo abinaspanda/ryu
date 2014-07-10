@@ -867,6 +867,7 @@ class OfTester(app_manager.RyuApp):
             for stats in msg.body:
                 result[stats.port_no] = {'rx': stats.rx_packets,
                                          'tx': stats.tx_packets}
+        #result{ポート番号 {rx:xxx, tx:xxx } }
         return result
 
     # パケットイン（tester/taregetから）メッセージが期待通りのものかチェック
@@ -928,6 +929,8 @@ class OfTester(app_manager.RyuApp):
         #test_type:いろいろ
         #target_pkt_count:ターゲット　の　ポート統計を取得
         #tester_pkt_count:補助SW　の　ポート統計を取得
+
+        #------before------
         #------------------------------------------------------------------------------------
         before_target_receive = target_pkt_count[0][TARGET_RECEIVE_PORT]['rx']
         #                       ターゲット　　　０　ターゲットの受信port
@@ -938,6 +941,8 @@ class OfTester(app_manager.RyuApp):
         #                       テスター　　　　０　テスターの受信port
         before_tester_send = tester_pkt_count[0][TESTER_SENDER_PORT]['tx']
         #                       テスター　　　　０　テスターの送信port
+
+        #------after------
         #------------------------------------------------------------------------------------
         after_target_receive = target_pkt_count[1][TARGET_RECEIVE_PORT]['rx']
         #                       ターゲット　　　１　ターゲットの受信port
@@ -949,8 +954,11 @@ class OfTester(app_manager.RyuApp):
         after_tester_send = tester_pkt_count[1][TESTER_SENDER_PORT]['tx']
         #                       テスター　　　　１　テスターの送信port
         #------------------------------------------------------------------------------------
+
+        #　テスト後＠補助SWの送信　＝　テスト前＠補助SWの送信
         if after_tester_send == before_tester_send:
             log_msg = 'no change in tx_packets on tester.'
+            # そもそも、補助SWからパケットがとんでいない？
         elif after_target_receive == before_target_receive:
             log_msg = 'no change in rx_packtes on target.'
         elif test_type == KEY_EGRESS:
