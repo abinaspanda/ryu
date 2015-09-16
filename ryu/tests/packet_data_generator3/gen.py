@@ -91,6 +91,14 @@ MESSAGES = [
               'importance=39032'] +
               STD_MATCH +
               ['actions=resubmit(1234,99)'])},
+    {'name': 'libofproto-OFP15-meter_mod',
+     'versions': [6],
+     'cmd': 'add-meter',
+     'args': ['meter=100',
+              'pktps',
+              'burst',
+              'stats',
+              'bands=type=drop,rate=1000,burst_size=10,type=dscp_remark,prec_level=1,rate=1000,burst_size=10']}
 ]
 
 buf = []
@@ -123,6 +131,8 @@ class MyHandler(socketserver.BaseRequestHandler):
                 hello.serialize()
                 self.request.send(hello.buf)
             elif msg_type == desc.ofproto.OFPT_FLOW_MOD:
+                buf.append(data[:msg_len])
+            elif msg_type == desc.ofproto.OFPT_METER_MOD:
                 buf.append(data[:msg_len])
             elif msg_type == desc.ofproto.OFPT_BARRIER_REQUEST:
                 brep = desc.ofproto_parser.OFPBarrierReply(desc)
