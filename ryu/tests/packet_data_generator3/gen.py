@@ -179,8 +179,7 @@ if __name__ == '__main__':
             cmdargs.append('\n'.join(msg['args']))
             if verbose:
                 print("Running cmd: " + ' '.join(cmdargs) + "\n")
-            t = threading.Thread(target=subprocess.call, args=[cmdargs],
-                                 kwargs={'timeout': 5})
+            t = threading.Thread(target=subprocess.call, args=[cmdargs])
             t.start()
             server.handle_request()
             if debug:
