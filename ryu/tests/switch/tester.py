@@ -52,7 +52,9 @@ from ryu.ofproto import ofproto_protocol
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ofproto_v1_3_parser
 from ryu.ofproto import ofproto_v1_4
+from ryu.ofproto import ofproto_v1_4_parser
 from ryu.ofproto import ofproto_v1_5
+from ryu.ofproto import ofproto_v1_5_parser
 
 
 """ Required test network:
@@ -625,20 +627,37 @@ class OfTester(app_manager.RyuApp):
 
     def _test_exist_check(self, method, message):
         parser = method.__self__.dp.ofproto_parser
-        method_dict = {
-            OpenFlowSw.send_flow_stats.__name__: {
-                'reply': parser.OFPFlowStatsReply,
-                'compare': self._compare_flow
-            },
-            OpenFlowSw.send_meter_config_stats.__name__: {
-                'reply': parser.OFPMeterConfigStatsReply,
-                'compare': self._compare_meter
-            },
-            OpenFlowSw.send_group_desc_stats.__name__: {
-                'reply': parser.OFPGroupDescStatsReply,
-                'compare': self._compare_group
+        ofproto = method.__self__.dp.ofproto
+        if ofproto.OFP_VERSION <= ofproto_v1_4.OFP_VERSION:
+            method_dict = {
+                OpenFlowSw.send_flow_stats.__name__: {
+                    'reply': parser.OFPFlowStatsReply,
+                    'compare': self._compare_flow
+                },
+                OpenFlowSw.send_meter_config_stats.__name__: {
+                    'reply': parser.OFPMeterConfigStatsReply,
+                    'compare': self._compare_meter
+                },
+                OpenFlowSw.send_group_desc_stats.__name__: {
+                    'reply': parser.OFPGroupDescStatsReply,
+                    'compare': self._compare_group
+                }
             }
-        }
+        else:
+            method_dict = {
+                OpenFlowSw.send_flow_stats.__name__: {
+                    'reply': parser.OFPFlowDescStatsReply,
+                    'compare': self._compare_flow
+                },
+                OpenFlowSw.send_meter_config_stats.__name__: {
+                    'reply': parser.OFPMeterDescStatsReply,
+                    'compare': self._compare_meter
+                },
+                OpenFlowSw.send_group_desc_stats.__name__: {
+                    'reply': parser.OFPGroupDescStatsReply,
+                    'compare': self._compare_group
+                }
+            }
         xid = method()
         self.send_msg_xids.append(xid)
         self._wait()
@@ -1076,7 +1095,9 @@ class OfTester(app_manager.RyuApp):
             raise TestReceiveError(self.state, self.rcv_msgs[0])
 
     @set_ev_cls([ofp_event.EventOFPFlowStatsReply,
+                 ofp_event.EventOFPFlowDescStatsReply,
                  ofp_event.EventOFPMeterConfigStatsReply,
+                 ofp_event.EventOFPMeterDescStatsReply,
                  ofp_event.EventOFPTableStatsReply,
                  ofp_event.EventOFPPortStatsReply,
                  ofp_event.EventOFPGroupDescStatsReply],
@@ -1085,12 +1106,6 @@ class OfTester(app_manager.RyuApp):
         # keys: stats reply event classes
         # values: states in which the events should be processed
         event_states = {
-            ofp_event.EventOFPFlowStatsReply:
-                [STATE_FLOW_EXIST_CHK,
-                 STATE_THROUGHPUT_FLOW_EXIST_CHK,
-                 STATE_GET_THROUGHPUT],
-            ofp_event.EventOFPMeterConfigStatsReply:
-                [STATE_METER_EXIST_CHK],
             ofp_event.EventOFPTableStatsReply:
                 [STATE_GET_MATCH_COUNT,
                  STATE_FLOW_UNMATCH_CHK],
@@ -1098,8 +1113,25 @@ class OfTester(app_manager.RyuApp):
                 [STATE_TARGET_PKT_COUNT,
                  STATE_TESTER_PKT_COUNT],
             ofp_event.EventOFPGroupDescStatsReply:
-                [STATE_GROUP_EXIST_CHK]
-        }
+                [STATE_GROUP_EXIST_CHK]}
+        if ev.msg.datapath.ofproto.OFP_VERSION <= ofproto_v1_4.OFP_VERSION:
+            event_states.update({
+                ofp_event.EventOFPFlowStatsReply:
+                    [STATE_FLOW_EXIST_CHK,
+                     STATE_THROUGHPUT_FLOW_EXIST_CHK,
+                     STATE_GET_THROUGHPUT]})
+            event_states.update({
+                ofp_event.EventOFPMeterConfigStatsReply:
+                    [STATE_METER_EXIST_CHK]})
+        else:
+            event_states.update({
+                ofp_event.EventOFPFlowDescStatsReply:
+                    [STATE_FLOW_EXIST_CHK,
+                     STATE_THROUGHPUT_FLOW_EXIST_CHK,
+                     STATE_GET_THROUGHPUT]})
+            event_states.update({
+                ofp_event.EventOFPMeterDescStatsReply:
+                    [STATE_METER_EXIST_CHK]})
         if self.state in event_states[ev.__class__]:
             if self.waiter and ev.msg.xid in self.send_msg_xids:
                 self.rcv_msgs.append(ev.msg)
@@ -1230,15 +1262,26 @@ class OpenFlowSw(object):
         """ Get all flow. """
         ofp = self.dp.ofproto
         parser = self.dp.ofproto_parser
-        req = parser.OFPFlowStatsRequest(self.dp, 0, ofp.OFPTT_ALL,
-                                         ofp.OFPP_ANY, ofp.OFPG_ANY,
-                                         0, 0, parser.OFPMatch())
+        ofproto = self.dp.ofproto
+        if ofproto.OFP_VERSION <= ofproto_v1_4.OFP_VERSION:
+            req = parser.OFPFlowStatsRequest(self.dp, 0, ofp.OFPTT_ALL,
+                                             ofp.OFPP_ANY, ofp.OFPG_ANY,
+                                             0, 0, parser.OFPMatch())
+        else:
+            req = parser.OFPFlowDescStatsRequest(self.dp, 0, ofp.OFPTT_ALL,
+                                             ofp.OFPP_ANY, ofp.OFPG_ANY,
+                                             0, 0, parser.OFPMatch())
         return self.send_msg(req)
 
     def send_meter_config_stats(self):
         """ Get all meter. """
         parser = self.dp.ofproto_parser
-        stats = parser.OFPMeterConfigStatsRequest(self.dp)
+        ofproto = self.dp.ofproto
+        if ofproto.OFP_VERSION <= ofproto_v1_4.OFP_VERSION:
+            stats = parser.OFPMeterConfigStatsRequest(self.dp)
+        else:
+            stats = parser.OFPMeterDescStatsRequest(self.dp)
+
         return self.send_msg(stats)
 
     def send_group_desc_stats(self):
