@@ -473,7 +473,7 @@ def get_port_desc(dp, waiters):
         for stat in stats.values():
             d = {'port_no': stat.port_no,
                  'hw_addr': stat.hw_addr,
-                 'name': stat.name,
+                 'name': stat.name.decode('utf-8'),
                  'config': stat.config,
                  'state': stat.state,
                  'curr': stat.curr,
