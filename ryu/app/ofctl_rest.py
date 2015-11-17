@@ -28,10 +28,12 @@ from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ofproto_v1_4
+from ryu.ofproto import ofproto_v1_5
 from ryu.lib import ofctl_v1_0
 from ryu.lib import ofctl_v1_2
 from ryu.lib import ofctl_v1_3
 from ryu.lib import ofctl_v1_4
+from ryu.lib import ofctl_v1_5
 from ryu.app.wsgi import ControllerBase, WSGIApplication
 
 
@@ -43,6 +45,7 @@ supported_ofctl = {
     ofproto_v1_2.OFP_VERSION: ofctl_v1_2,
     ofproto_v1_3.OFP_VERSION: ofctl_v1_3,
     ofproto_v1_4.OFP_VERSION: ofctl_v1_4,
+    ofproto_v1_5.OFP_VERSION: ofctl_v1_5,
 }
 
 # REST API
@@ -827,7 +830,8 @@ class RestStatsApi(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION,
                     ofproto_v1_2.OFP_VERSION,
                     ofproto_v1_3.OFP_VERSION,
-                    ofproto_v1_4.OFP_VERSION]
+                    ofproto_v1_4.OFP_VERSION,
+                    ofproto_v1_5.OFP_VERSION]
     _CONTEXTS = {
         'dpset': dpset.DPSet,
         'wsgi': WSGIApplication
