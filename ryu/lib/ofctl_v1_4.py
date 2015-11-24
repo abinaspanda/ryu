@@ -183,6 +183,10 @@ def action_to_str(act):
         buf = 'PUSH_PBB:' + str(act.ethertype)
     elif action_type == ofproto_v1_4.OFPAT_POP_PBB:
         buf = 'POP_PBB'
+    elif action_type == ofproto_v1_4.OFPAT_EXPERIMENTER:
+        data_str = base64.b64encode(act.data)
+        buf = 'EXPERIMENTER: {experimenter:%s, data:%s}' % \
+            (act.experimenter, data_str.decode('utf-8'))
     else:
         buf = 'UNKNOWN'
     return buf
