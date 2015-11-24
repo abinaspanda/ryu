@@ -82,6 +82,15 @@ def to_action(dp, dic):
         result = parser.OFPActionPushPbb(ethertype)
     elif action_type == 'POP_PBB':
         result = parser.OFPActionPopPbb()
+    elif action_type == 'EXPERIMENTER':
+        experimenter = int(dic.get('experimenter'))
+        data_type = dic.get('data_type', 'ascii')
+        if data_type != 'ascii' and data_type != 'base64':
+            LOG.error('Unknown data type: %s', data_type)
+        data = dic.get('data', '')
+        if data_type == 'base64':
+            data = base64.b64decode(data)
+        result = parser.OFPActionExperimenter(experimenter, data)
     else:
         result = None
 
