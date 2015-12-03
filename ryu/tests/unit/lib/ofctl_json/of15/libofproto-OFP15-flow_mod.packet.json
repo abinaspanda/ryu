@@ -1,0 +1,99 @@
+{
+    "cmd": 0,
+    "flow": {
+        "actions": [
+            {
+                "actions": [
+                    {
+                        "field": "vlan_vid",
+                        "type": "SET_FIELD",
+                        "value": 258
+                    },
+                    {
+                        "type": "COPY_TTL_OUT"
+                    },
+                    {
+                        "type": "COPY_TTL_IN"
+                    },
+                    {
+                        "type": "COPY_TTL_IN"
+                    },
+                    {
+                        "type": "POP_PBB"
+                    },
+                    {
+                        "ethertype": 4660,
+                        "type": "PUSH_PBB"
+                    },
+                    {
+                        "ethertype": 39030,
+                        "type": "POP_MPLS"
+                    },
+                    {
+                        "ethertype": 34887,
+                        "type": "PUSH_MPLS"
+                    },
+                    {
+                        "type": "POP_VLAN"
+                    },
+                    {
+                        "ethertype": 33024,
+                        "type": "PUSH_VLAN"
+                    },
+                    {
+                        "type": "DEC_MPLS_TTL"
+                    },
+                    {
+                        "mpls_ttl": 10,
+                        "type": "SET_MPLS_TTL"
+                    },
+                    {
+                        "type": "DEC_NW_TTL"
+                    },
+                    {
+                        "nw_ttl": 10,
+                        "type": "SET_NW_TTL"
+                    },
+                    {
+                        "queue_id": 3,
+                        "type": "SET_QUEUE"
+                    },
+                    {
+                        "group_id": 99,
+                        "type": "GROUP"
+                    },
+                    {
+                        "max_len": 65535,
+                        "port": 6,
+                        "type": "OUTPUT"
+                    }
+                ],
+                "type": "WRITE_ACTIONS"
+            },
+            {
+                "field": "eth_src",
+                "type": "SET_FIELD",
+                "value": "01:02:03:04:05:06"
+            },
+            {
+                "field": "pbb_uca",
+                "type": "SET_FIELD",
+                "value": 1
+            }
+        ],
+        "buffer_id": 0,
+        "cookie": 1311768467463790320,
+        "cookie_mask": 18446744073709551615,
+        "flags": 0,
+        "hard_timeout": 0,
+        "idle_timeout": 0,
+        "importance": 39032,
+        "match": {
+            "eth_dst": "f2:0b:a4:7d:f8:ea"
+        },
+        "out_group": 0,
+        "out_port": 0,
+        "priority": 0,
+        "table_id": 2
+    }
+}
