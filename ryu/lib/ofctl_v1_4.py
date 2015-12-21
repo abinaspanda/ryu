@@ -453,11 +453,7 @@ def get_desc_stats(dp, waiters):
 
     for msg in msgs:
         stats = msg.body
-        s = {'mfr_desc': stats.mfr_desc,
-             'hw_desc': stats.hw_desc,
-             'sw_desc': stats.sw_desc,
-             'serial_num': stats.serial_num,
-             'dp_desc': stats.dp_desc}
+        s = stats.to_jsondict()["OFPDescStats"]
     desc = {str(dp.id): s}
     return desc
 
@@ -601,9 +597,7 @@ def get_aggregate_flow_stats(dp, waiters, flow=None):
     flows = []
     for msg in msgs:
         stats = msg.body
-        s = {'packet_count': stats.packet_count,
-             'byte_count': stats.byte_count,
-             'flow_count': stats.flow_count}
+        s = stats.to_jsondict()["OFPAggregateStats"]
         flows.append(s)
     flows = {str(dp.id): flows}
 
@@ -619,10 +613,7 @@ def get_table_stats(dp, waiters):
     for msg in msgs:
         stats = msg.body
         for stat in stats:
-            s = {'table_id': stat.table_id,
-                 'active_count': stat.active_count,
-                 'lookup_count': stat.lookup_count,
-                 'matched_count': stat.matched_count}
+            s = stat.to_jsondict()["OFPTableStats"]
             tables.append(s)
     desc = {str(dp.id): tables}
 
@@ -1022,37 +1013,19 @@ def get_port_desc(dp, waiters):
         for stat in stats:
             properties = []
             for prop in stat.properties:
-                p = {'type': prop_type.get(prop.type, 'UNKNOWN')}
                 if prop.type == dp.ofproto.OFPPDPT_ETHERNET:
-                    p['curr'] = prop.curr
-                    p['advertised'] = prop.advertised
-                    p['supported'] = prop.supported
-                    p['peer'] = prop.peer
-                    p['curr_speed'] = prop.curr_speed
-                    p['max_speed'] = prop.max_speed
+                    p = prop.to_jsondict()["OFPPortDescPropEthernet"]
                 elif prop.type == dp.ofproto.OFPPDPT_OPTICAL:
-                    p['supported'] = prop.supported
-                    p['tx_min_freq_lmda'] = prop.tx_min_freq_lmda
-                    p['tx_max_freq_lmda'] = prop.tx_max_freq_lmda
-                    p['tx_grid_freq_lmda'] = prop.tx_grid_freq_lmda
-                    p['rx_min_freq_lmda'] = prop.rx_min_freq_lmda
-                    p['rx_max_freq_lmda'] = prop.rx_max_freq_lmda
-                    p['rx_grid_freq_lmda'] = prop.rx_grid_freq_lmda
-                    p['tx_pwr_min'] = prop.tx_pwr_min
-                    p['tx_pwr_max'] = prop.tx_pwr_max
+                    p = prop.to_jsondict()["OFPPortDescPropOptical"]
                 elif prop.type == dp.ofproto.OFPPDPT_EXPERIMENTER:
-                    p['experimenter'] = prop.experimenter
-                    p['exp_type'] = prop.exp_type
-                    p['data'] = prop.data
+                    p = prop.to_jsondict()["OFPPortDescPropExperimenter"]
                 else:
                     pass
+                p['type'] = prop_type.get(prop.type, 'UNKNOWN')
                 properties.append(p)
-            d = {'port_no': stat.port_no,
-                 'hw_addr': stat.hw_addr,
-                 'name': stat.name.decode('utf-8'),
-                 'config': stat.config,
-                 'state': stat.state,
-                 'properties': properties}
+            d = stat.to_jsondict()["OFPPort"]
+            d['name'] = stat.name.decode('utf-8')
+            d['properties'] = properties
             descs.append(d)
     descs = {str(dp.id): descs}
     return descs
