@@ -86,6 +86,9 @@ supported_ofctl = {
 # get queues config stats of the switch
 # GET /stats/queueconfig/<dpid>/<port>
 #
+# get queues desc stats of the switch
+# GET /stats/queuedesc/<dpid>/<port>/<queue>
+#
 # get meter features stats of the switch
 # GET /stats/meterfeatures/<dpid>
 #
