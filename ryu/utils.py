@@ -83,7 +83,7 @@ def import_module(modname):
         mod = _find_loaded_module(abspath)
         if mod:
             return mod
-        opath = sys.path
+        opath = list(sys.path)
         sys.path.append(os.path.dirname(abspath))
         name = os.path.basename(modname)
         if name.endswith('.py'):
