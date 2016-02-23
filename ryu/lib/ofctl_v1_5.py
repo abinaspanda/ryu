@@ -524,6 +524,7 @@ def get_aggregate_flow_stats(dp, waiters, flow=None):
     for msg in msgs:
         stats = msg.body
         s = stats.to_jsondict()[stats.__class__.__name__]
+        s['stats'] = stats_to_str(stats.stats)
         flows.append(s)
     flows = {str(dp.id): flows}
 
