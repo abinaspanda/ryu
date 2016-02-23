@@ -29,7 +29,7 @@ LOG = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 1.0
 
-UTIL = ofctl_utils.OFCtlUtil(ofproto_v1_4)
+UTIL = ofctl_utils.OFCtlUtil(ofproto_v1_5)
 
 
 def to_action(dp, dic):
@@ -195,7 +195,7 @@ def instructions_to_str(instructions):
         t = UTIL.ofp_instruction_type_to_user(v['type'])
         inst_type = t if t != v['type'] else 'UNKNOWN'
         # apply/write/clear-action instruction
-        if isinstance(i, ofproto_v1_4_parser.OFPInstructionActions):
+        if isinstance(i, ofproto_v1_5_parser.OFPInstructionActions):
             acts = []
             for a in i.actions:
                 acts.append(action_to_str(a))
@@ -701,7 +701,7 @@ def get_meter_config(dp, waiters):
              dp.ofproto.OFPMF_BURST: 'BURST',
              dp.ofproto.OFPMF_STATS: 'STATS'}
 
-    stats = dp.ofproto_parser.OFPMeterConfigStatsRequest(
+    stats = dp.ofproto_parser.OFPMeterDescStatsRequest(
         dp, 0, dp.ofproto.OFPM_ALL)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
