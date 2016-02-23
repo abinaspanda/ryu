@@ -417,36 +417,41 @@ def _add_tests():
                 'request': 'libofproto-OFP15-desc_request.packet.json',
                 'reply': 'libofproto-OFP15-desc_reply.packet.json'
             },
-            #            {
-            #                'method': ofctl_v1_5.get_queue_stats,
-            #                'request': 'libofproto-OFP15-queue_stats_request.packet.json',
-            #                'reply': 'libofproto-OFP15-queue_stats_reply.packet.json'
-            #            },
-            #            {
-            #                'method': ofctl_v1_5.get_queue_desc_stats,
-            #                'request': 'libofproto-OFP15-queue_desc_request.packet.json',
-            #                'reply': 'libofproto-OFP15-queue_desc_reply.packet.json'
-            #            },
+            {
+                'method': ofctl_v1_5.get_queue_stats,
+                'request': 'lib-ofctl-ofp_queue_stats_request.packet.json',
+                'reply': 'libofproto-OFP15-queue_stats_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.get_queue_desc_stats,
+                'request': 'libofproto-OFP15-queue_desc_request.packet.json',
+                'reply': 'libofproto-OFP15-queue_desc_reply.packet.json'
+            },
             {
                 'method': ofctl_v1_5.get_flow_stats,
                 'request': 'libofproto-OFP15-flow_stats_request.packet.json',
                 'reply': 'libofproto-OFP15-flow_stats_reply.packet.json'
             },
             {
+                'method': ofctl_v1_5.get_flow_desc_stats,
+                'request': 'libofproto-OFP15-flow_desc_request.packet.json',
+                'reply': 'libofproto-OFP15-flow_desc_reply.packet.json'
+            },
+            {
                 'method': ofctl_v1_5.get_aggregate_flow_stats,
                 'request': 'libofproto-OFP15-aggregate_stats_request.packet.json',
                 'reply': 'libofproto-OFP15-aggregate_stats_reply.packet.json'
             },
-            #            {
-            #                'method': ofctl_v1_5.get_table_stats,
-            #                'request': 'xxx.packet.json',
-            #                'reply': 'xxx.packet.json'
-            #            },
-            #            {
-            #                'method': ofctl_v1_5.get_table_features,
-            #                'request': 'xxx.packet.json',
-            #                'reply': 'xxx.packet.json'
-            #            },
+            {
+                'method': ofctl_v1_5.get_table_stats,
+                'request': 'libofproto-OFP15-table_stats_request.packet.json',
+                'reply': 'libofproto-OFP15-table_stats_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.get_table_features,
+                'request': 'lib-ofctl-ofp_table_features_request.packet.json',
+                'reply': 'libofproto-OFP15-table_features_reply.packet.json'
+            },
             {
                 'method': ofctl_v1_5.get_port_stats,
                 'request': 'libofproto-OFP15-port_stats_request.packet.json',
@@ -463,7 +468,7 @@ def _add_tests():
                 'reply': 'libofproto-OFP15-meter_features_reply.packet.json'
             },
             {
-                'method': ofctl_v1_5.get_meter_config,
+                'method': ofctl_v1_5.get_meter_desc,
                 'request': 'libofproto-OFP15-meter_desc_request.packet.json',
                 'reply': 'libofproto-OFP15-meter_desc_reply.packet.json'
             },
@@ -477,21 +482,21 @@ def _add_tests():
                 'request': 'libofproto-OFP15-group_features_request.packet.json',
                 'reply': 'libofproto-OFP15-group_features_reply.packet.json'
             },
-            #            {
-            #                'method': ofctl_v1_5.get_group_desc,
-            #                'request': 'libofproto-OFP15-group_desc_request.packet.json',
-            #                'reply': 'libofproto-OFP15-group_desc_reply.packet.json'
-            #            },
-            #            {
-            #                'method': ofctl_v1_5.get_port_desc,
-            #                'request': 'libofproto-OFP15-port_desc_request.packet.json',
-            #                'reply': 'libofproto-OFP15-port_desc_reply.packet.json'
-            #            },
-            #            {
-            #                'method': ofctl_v1_5.mod_flow_entry,
-            #                'request': 'libofproto-OFP15-flow_mod.packet.json',
-            #                'reply': None
-            #            },
+            {
+                'method': ofctl_v1_5.get_group_desc,
+                'request': 'libofproto-OFP15-group_desc_request.packet.json',
+                'reply': 'libofproto-OFP15-group_desc_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.get_port_desc,
+                'request': 'libofproto-OFP15-port_desc_request.packet.json',
+                'reply': 'libofproto-OFP15-port_desc_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.mod_flow_entry,
+                'request': 'libofproto-OFP15-flow_mod_no_nx.packet.json',
+                'reply': None
+            },
             {
                 'method': ofctl_v1_5.mod_meter_entry,
                 'request': 'libofproto-OFP15-meter_mod.packet.json',  # flow --> meter

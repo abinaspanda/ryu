@@ -1,7 +1,7 @@
 {
     "cmd": 0,
     "flow": {
-        "actions": [
+        "instructions": [
             {
                 "actions": [
                     {
@@ -55,6 +55,12 @@
                         "type": "SET_NW_TTL"
                     },
                     {
+                        "data": "AAECAwQFBgc=",
+                        "data_type": "base64",
+                        "experimenter": 101,
+                        "type": "EXPERIMENTER"
+                    },
+                    {
                         "queue_id": 3,
                         "type": "SET_QUEUE"
                     },
@@ -71,29 +77,27 @@
                 "type": "WRITE_ACTIONS"
             },
             {
-                "field": "eth_src",
-                "type": "SET_FIELD",
-                "value": "01:02:03:04:05:06"
-            },
-            {
-                "field": "pbb_uca",
-                "type": "SET_FIELD",
-                "value": 1
+                "actions": [
+                    {
+                        "field": "eth_src",
+                        "type": "SET_FIELD",
+                        "value": "01:02:03:04:05:06"
+                    },
+                    {
+                        "field": "pbb_uca",
+                        "type": "SET_FIELD",
+                        "value": 1
+                    }
+                ],
+                "type": "APPLY_ACTIONS"
             }
         ],
-        "buffer_id": 0,
-        "cookie": 1311768467463790320,
-        "cookie_mask": 18446744073709551615,
-        "flags": 0,
-        "hard_timeout": 0,
-        "idle_timeout": 0,
-        "importance": 39032,
+        "buffer_id": 65535,
+        "importance": 0,
         "match": {
             "eth_dst": "f2:0b:a4:7d:f8:ea"
         },
-        "out_group": 0,
-        "out_port": 0,
-        "priority": 0,
-        "table_id": 2
+        "priority": 123,
+        "table_id": 1
     }
 }

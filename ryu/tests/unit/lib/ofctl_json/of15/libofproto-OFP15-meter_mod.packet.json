@@ -1,6 +1,6 @@
 {
     "cmd": 0,
-    "flow": {
+    "meter": {
         "bands": [
             {
                 "burst_size": 10,
