@@ -148,6 +148,12 @@ class OFCtlUtil(object):
     def ofp_group_capabilities_to_user(self, group):
         return self._reserved_num_to_user(group, 'OFPGFC_')
 
+    def ofp_group_bucket_prop_type_from_user(self, group):
+        return self._reserved_num_from_user(group, 'OFPGBPT_')
+
+    def ofp_group_bucket_prop_type_to_user(self, group):
+        return self._reserved_num_to_user(group, 'OFPGBPT_')
+
     def ofp_buffer_from_user(self, buffer):
         if buffer in ['OFP_NO_BUFFER', 'NO_BUFFER']:
             return self.ofproto.OFP_NO_BUFFER
