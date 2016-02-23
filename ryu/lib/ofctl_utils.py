@@ -27,8 +27,13 @@ class OFCtlUtil(object):
 
     def __init__(self, ofproto):
         self.ofproto = ofproto
+        # Note: Because these are deprecated in OpenFlow Spec,
+        # the following values are ignored when
+        # _reserved_num_to_user() is executed.
         self.deprecated_value = [
-            'OFPTFPT_EXPERIMENTER_SLAVE', 'OFPTFPT_EXPERIMENTER_MASTER']
+            'OFPTFPT_EXPERIMENTER_SLAVE',
+            'OFPTFPT_EXPERIMENTER_MASTER',
+            'OFPQCFC_EPERM']
 
     def _reserved_num_from_user(self, num, prefix):
         if isinstance(num, int):
