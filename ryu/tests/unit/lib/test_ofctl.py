@@ -463,7 +463,7 @@ def _add_tests():
                 'reply': 'libofproto-OFP15-meter_features_reply.packet.json'
             },
             {
-                'method': ofctl_v1_5.get_meter_config,
+                'method': ofctl_v1_5.get_meter_desc,
                 'request': 'libofproto-OFP15-meter_desc_request.packet.json',
                 'reply': 'libofproto-OFP15-meter_desc_reply.packet.json'
             },
@@ -477,21 +477,22 @@ def _add_tests():
                 'request': 'libofproto-OFP15-group_features_request.packet.json',
                 'reply': 'libofproto-OFP15-group_features_reply.packet.json'
             },
-            #            {
-            #                'method': ofctl_v1_5.get_group_desc,
-            #                'request': 'libofproto-OFP15-group_desc_request.packet.json',
-            #                'reply': 'libofproto-OFP15-group_desc_reply.packet.json'
-            #            },
-            #            {
-            #                'method': ofctl_v1_5.get_port_desc,
-            #                'request': 'libofproto-OFP15-port_desc_request.packet.json',
-            #                'reply': 'libofproto-OFP15-port_desc_reply.packet.json'
-            #            },
-            #            {
-            #                'method': ofctl_v1_5.mod_flow_entry,
-            #                'request': 'libofproto-OFP15-flow_mod.packet.json',
-            #                'reply': None
-            #            },
+            {
+                'method': ofctl_v1_5.get_group_desc,
+                'request': 'libofproto-OFP15-group_desc_request.packet.json',
+                'reply': 'libofproto-OFP15-group_desc_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.get_port_desc,
+                'request': 'libofproto-OFP15-port_desc_request.packet.json',
+                'reply': 'libofproto-OFP15-port_desc_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.mod_flow_entry,
+                #'request': 'libofproto-OFP15-flow_mod.packet.json',
+                'request': 'libofproto-OFP15-flow_mod_no_nx.packet.json',
+                'reply': None
+            },
             {
                 'method': ofctl_v1_5.mod_meter_entry,
                 'request': 'libofproto-OFP15-meter_mod.packet.json',  # flow --> meter

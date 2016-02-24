@@ -37,6 +37,7 @@ def to_action(dp, dic):
     parser = dp.ofproto_parser
 
     action_type = dic.get('type')
+    print action_type
 
     if action_type == 'OUTPUT':
         out_port = UTIL.ofp_port_from_user(dic.get('port', ofp.OFPP_ANY))
@@ -81,7 +82,7 @@ def to_action(dp, dic):
         ethertype = int(dic.get('ethertype'))
         action = parser.OFPActionPushPbb(ethertype)
     elif action_type == 'POP_PBB':
-        result = parser.OFPActionPopPbb()
+        action = parser.OFPActionPopPbb()
 #    TODO
 #    elif action_type == 'COPY_FIELD':
 
@@ -93,7 +94,7 @@ def to_action(dp, dic):
         data = dic.get('data', '')
         if data_type == 'base64':
             data = base64.b64decode(data)
-        action = parser.OFPActionExperimenter(experimenter, data)
+        action = parser.OFPActionExperimenterUnknown(experimenter, data)
     elif action_type == 'METER':
         # TODO?
         meter_id = int(dic.get('meter_id'))
@@ -696,7 +697,7 @@ def get_meter_features(dp, waiters):
     return features
 
 
-def get_meter_config(dp, waiters):
+def get_meter_desc(dp, waiters):
     flags = {dp.ofproto.OFPMF_KBPS: 'KBPS',
              dp.ofproto.OFPMF_PKTPS: 'PKTPS',
              dp.ofproto.OFPMF_BURST: 'BURST',
@@ -812,8 +813,12 @@ def get_group_features(dp, waiters):
     return features
 
 
-def get_group_desc(dp, waiters):
-    stats = dp.ofproto_parser.OFPGroupDescStatsRequest(dp, 0)
+def get_group_desc(dp, waiters, group_id=None):
+    if group_id is None:
+        group_id = dp.ofproto.OFPG_ALL
+    else:
+        group_id = int(str(group_id), 0)
+    stats = dp.ofproto_parser.OFPGroupDescStatsRequest(dp, 0, group_id)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -824,22 +829,37 @@ def get_group_desc(dp, waiters):
             buckets = []
             for bucket in stats.buckets:
                 b = bucket.to_jsondict()[bucket.__class__.__name__]
+                # Why b does not have variable of 'action_array_len'?
                 actions = []
                 for action in bucket.actions:
                     actions.append(action_to_str(action))
+                properties = []
+                for prop in bucket.properties:
+                    p = prop.to_jsondict()[prop.__class__.__name__]
+                    t = UTIL.ofp_group_bucket_prop_type_to_user(prop.type)
+                    p['type'] = t if t != prop.type else 'UNKNOWN'
+                    properties.append(p)
                 b['actions'] = actions
+                b['properties'] = properties
                 buckets.append(b)
             t = UTIL.ofp_group_type_to_user(stats.type)
             d['type'] = t if t != stats.type else 'UNKNOWN'
             d['buckets'] = buckets
+
+            #TODO
+            d = _remove(d, 'bucket_array_len')
+
             descs.append(d)
     descs = {str(dp.id): descs}
     return descs
 
-"""
 
-def get_port_desc(dp, waiters):
-    stats = dp.ofproto_parser.OFPPortDescStatsRequest(dp, 0)
+def get_port_desc(dp, waiters, port_no=None):
+    if port_no is None:
+        port_no = dp.ofproto.OFPP_ANY
+    else:
+        port_no = int(str(port_no), 0)
+    stats = dp.ofproto_parser.OFPPortDescStatsRequest(dp, 0, port_no)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -887,10 +907,8 @@ def mod_flow_entry(dp, flow, cmd):
 
     dp.send_msg(flow_mod)
 
-"""
 
 def mod_meter_entry(dp, meter, cmd):
-
     flags = 0
     if 'flags' in meter:
         meter_flags = meter['flags']
@@ -936,19 +954,15 @@ def mod_group_entry(dp, group, cmd):
     ofp = dp.ofproto
     parser = dp.ofproto_parser
 
-    # TODO name edit
-    type_convert = {'ALL': ofp.OFPGT_ALL,
-                    'SELECT': ofp.OFPGT_SELECT,
-                    'INDIRECT': ofp.OFPGT_INDIRECT,
-                    'FF': ofp.OFPGT_FF}
+#    prop_type_convert = {'WEIGHT': ,
+#                         'WATCH_PORT': ofp.OFPGBPT_WATCH_PORT,
+#                         'WATCH_GROUP': ofp.OFPGBPT_WATCH_GROUP,
+#                         'EXPERIMENTER': ofp.OFPGBPT_EXPERIMENTER}
 
-    prop_type_convert = {'WEIGHT': ofp.OFPGBPT_WEIGHT,
-                         'WATCH_PORT': ofp.OFPGBPT_WATCH_PORT,
-                         'WATCH_GROUP': ofp.OFPGBPT_WATCH_GROUP,
-                         'EXPERIMENTER': ofp.OFPGBPT_EXPERIMENTER}
-
-    type_ = type_convert.get(group.get('type', 'ALL'))
-    if type_ is None:
+    group_type = str(group.get('type'))
+    t = UTIL.ofp_group_type_from_user(group_type)
+    group_type = t if t != group_type else None
+    if group_type is None:
         LOG.error('Unknown group type: %s', group.get('type'))
 
     group_id = int(group.get('group_id', 0))
@@ -970,17 +984,21 @@ def mod_group_entry(dp, group, cmd):
         # get properties in buckets
         bucket_properties = []
         for p in bucket.get('properties', []):
-            type__ = prop_type_convert.get(p.get('type', 'WEIGHT'))
-            if type__ == ofp.OFPGBPT_WEIGHT:
+            #type__ = prop_type_convert.get(p.get('type', 'WEIGHT'))
+            group_bp_type = str(p.get('type', 'WEIGHT'))
+            t = UTIL.ofp_group_bucket_prop_type_from_user(group_bp_type)
+            group_bp_type = t if t != group_bp_type else ofp.OFPGBPT_WEIGHT
+
+            if group_bp_type == ofp.OFPGBPT_WEIGHT:
                 weight = p['weight']
-                m = parser.OFPGroupBucketPropWeight(type_=type__,
+                m = parser.OFPGroupBucketPropWeight(type_=group_bp_type,
                                                     weight=weight)
-            elif type__ in [ofp.OFPGBPT_WATCH_PORT,
+            elif group_bp_type in [ofp.OFPGBPT_WATCH_PORT,
                             ofp.OFPGBPT_WATCH_GROUP]:
                 watch = p['watch']
-                m = parser.OFPGroupBucketPropWatch(type_=type__,
+                m = parser.OFPGroupBucketPropWatch(type_=group_bp_type,
                                                    watch=watch)
-            elif type__ == ofp.OFPGBPT_EXPERIMENTER:
+            elif group_bp_type == ofp.OFPGBPT_EXPERIMENTER:
                 # TODO test
                 experimenter = p.get('experimenter', 0)
                 exp_type = p.get('exp_type', 0)
@@ -990,7 +1008,7 @@ def mod_group_entry(dp, group, cmd):
                 data = p.get('data', '')
                 if data_type == 'base64':
                     data = base64.b64decode(data)
-                m = parser.OFPGroupBucketPropExperimenter(type_=type__,
+                m = parser.OFPGroupBucketPropExperimenter(type_=group_bp_type,
                                                           experimenter=experimenter,
                                                           exp_type=exp_type,
                                                           data=data)
@@ -1004,7 +1022,7 @@ def mod_group_entry(dp, group, cmd):
                                   properties=bucket_properties)
         buckets.append(bucket)
 
-    group_mod = parser.OFPGroupMod(dp, cmd, type_, group_id,
+    group_mod = parser.OFPGroupMod(dp, cmd, group_type, group_id,
                                    command_bucket_id, buckets,
                                    properties)
 
