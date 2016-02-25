@@ -417,11 +417,11 @@ def _add_tests():
                 'request': 'libofproto-OFP15-desc_request.packet.json',
                 'reply': 'libofproto-OFP15-desc_reply.packet.json'
             },
-            #            {
-            #                'method': ofctl_v1_5.get_queue_stats,
-            #                'request': 'libofproto-OFP15-queue_stats_request.packet.json',
-            #                'reply': 'libofproto-OFP15-queue_stats_reply.packet.json'
-            #            },
+            {
+                'method': ofctl_v1_5.get_queue_stats,
+                'request': 'libofproto-OFP15-queue_stats_request.packet.json',
+                'reply': 'libofproto-OFP15-queue_stats_reply.packet.json'
+            },
             #            {
             #                'method': ofctl_v1_5.get_queue_desc_stats,
             #                'request': 'libofproto-OFP15-queue_desc_request.packet.json',

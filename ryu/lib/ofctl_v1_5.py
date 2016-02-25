@@ -37,7 +37,6 @@ def to_action(dp, dic):
     parser = dp.ofproto_parser
 
     action_type = dic.get('type')
-    print action_type
 
     if action_type == 'OUTPUT':
         out_port = UTIL.ofp_port_from_user(dic.get('port', ofp.OFPP_ANY))
@@ -85,7 +84,6 @@ def to_action(dp, dic):
         action = parser.OFPActionPopPbb()
 #    TODO
 #    elif action_type == 'COPY_FIELD':
-
     elif action_type == 'EXPERIMENTER':
         experimenter = int(dic.get('experimenter'))
         data_type = dic.get('data_type', 'ascii')
@@ -96,7 +94,6 @@ def to_action(dp, dic):
             data = base64.b64decode(data)
         action = parser.OFPActionExperimenterUnknown(experimenter, data)
     elif action_type == 'METER':
-        # TODO?
         meter_id = int(dic.get('meter_id'))
         action = parser.OFPActionMeter(meter_id)
     else:
@@ -149,9 +146,6 @@ def to_instructions(dp, insts):
             instructions.append(
                 parser.OFPInstructionWriteMetadata(
                     metadata, metadata_mask))
-        elif inst_type == 'METER':
-            meter_id = int(i.get('meter_id'))
-            instructions.append(parser.OFPInstructionMeter(meter_id))
         else:
             LOG.error('Unknown instruction type: %s', inst_type)
 
@@ -169,7 +163,6 @@ def action_to_str(act):
         s['mask'] = field['OXMTlv']['mask']
         s['value'] = field['OXMTlv']['value']
 
-    # TODO COPY FIELD??
     return s
 
 
@@ -413,8 +406,10 @@ def get_desc_stats(dp, waiters):
     return desc
 
 
-def get_queue_stats(dp, waiters):
+def get_queue_stats(dp, waiters, port_no=None, queue_id=None):
     ofp = dp.ofproto
+    port_no = port_no if port_no else ofp.OFPP_ANY
+    queue_id = queue_id if queue_id else ofp.OFPQ_ALL
     stats = dp.ofproto_parser.OFPQueueStatsRequest(dp, 0, ofp.OFPP_ANY,
                                                    ofp.OFPQ_ALL)
     msgs = []
@@ -500,6 +495,8 @@ def get_flow_stats(dp, waiters, flow=None):
 
     return flows
 
+# TODO
+# def get_flow_desc(dp, waiters, flow=None):
 
 def get_aggregate_flow_stats(dp, waiters, flow=None):
     flow = flow if flow else {}
@@ -776,6 +773,8 @@ def get_group_features(dp, waiters):
                    ofp.OFPAT_SET_FIELD: 'SET_FIELD',
                    ofp.OFPAT_PUSH_PBB: 'PUSH_PBB',
                    ofp.OFPAT_POP_PBB: 'POP_PBB',
+                   ofp.OFPAT_COPY_FIELD: 'COPY_FIELD',
+                   ofp.OFPAT_METER: 'METER',
                    ofp.OFPAT_EXPERIMENTER: 'EXPERIMENTER',
                    }
 
