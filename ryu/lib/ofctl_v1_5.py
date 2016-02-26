@@ -555,19 +555,26 @@ def get_table_features(dp, waiters):
                            ofproto.OFPTFPT_INSTRUCTIONS_MISS]
 
     p_type_next_tables = [ofproto.OFPTFPT_NEXT_TABLES,
-                          ofproto.OFPTFPT_NEXT_TABLES_MISS]
+                          ofproto.OFPTFPT_NEXT_TABLES_MISS,
+                          ofproto.OFPTFPT_TABLE_SYNC_FROM]
 
     p_type_actions = [ofproto.OFPTFPT_WRITE_ACTIONS,
                       ofproto.OFPTFPT_WRITE_ACTIONS_MISS,
                       ofproto.OFPTFPT_APPLY_ACTIONS,
                       ofproto.OFPTFPT_APPLY_ACTIONS_MISS]
 
+    p_type_packet = ofproto.OFPTFPT_PACKET_TYPES
+
     p_type_oxms = [ofproto.OFPTFPT_MATCH,
                    ofproto.OFPTFPT_WILDCARDS,
                    ofproto.OFPTFPT_WRITE_SETFIELD,
                    ofproto.OFPTFPT_WRITE_SETFIELD_MISS,
                    ofproto.OFPTFPT_APPLY_SETFIELD,
-                   ofproto.OFPTFPT_APPLY_SETFIELD_MISS]
+                   ofproto.OFPTFPT_APPLY_SETFIELD_MISS,
+                   ofproto.OFPTFPT_WRITE_COPYFIELD,
+                   ofproto.OFPTFPT_WRITE_COPYFIELD_MISS,
+                   ofproto.OFPTFPT_APPLY_COPYFIELD,
+                   ofproto.OFPTFPT_APPLY_COPYFIELD_MISS]
 
     p_type_experimenter = [ofproto.OFPTFPT_EXPERIMENTER,
                            ofproto.OFPTFPT_EXPERIMENTER_MISS]
@@ -582,6 +589,7 @@ def get_table_features(dp, waiters):
                 p = {}
                 t = UTIL.ofp_table_feature_prop_type_to_user(prop.type)
                 p['type'] = t if t != prop.type else 'UNKNOWN'
+
                 if prop.type in p_type_instructions:
                     instruction_ids = []
                     for id in prop.instruction_ids:
@@ -606,6 +614,14 @@ def get_table_features(dp, waiters):
                         i = id.to_jsondict()[id.__class__.__name__]
                         oxm_ids.append(i)
                     p['oxm_ids'] = oxm_ids
+                elif prop.type == p_type_packet:
+                    oxm_values = []
+                    for val in prop.oxm_values:
+                        # (u'eth_src', u'aa:bb:cc:dd:ee:ff')
+                        #i = vals.to_jsondict()[vals.__class__.__name__]
+                        i = {val[0]:val[1]}
+                        oxm_values.append(i)
+                    p['oxm_values'] = oxm_values
                 elif prop.type in p_type_experimenter:
                     pass
                 properties.append(p)
@@ -828,6 +844,7 @@ def get_group_desc(dp, waiters, group_id=None):
             buckets = []
             for bucket in stats.buckets:
                 b = bucket.to_jsondict()[bucket.__class__.__name__]
+                # TODO
                 # Why b does not have variable of 'action_array_len'?
                 actions = []
                 for action in bucket.actions:
