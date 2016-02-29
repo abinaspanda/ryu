@@ -226,6 +226,42 @@ class StatsController(ControllerBase):
         body = json.dumps(flows)
         return Response(content_type='application/json', body=body)
 
+    def get_flow_desc(self, req, dpid, **_kwargs):
+
+        if req.body == '':
+            flow = {}
+
+        else:
+
+            try:
+                flow = ast.literal_eval(req.body)
+
+            except SyntaxError:
+                LOG.debug('invalid syntax %s', req.body)
+                return Response(status=400)
+
+        if type(dpid) == str and not dpid.isdigit():
+            LOG.debug('invalid dpid %s', dpid)
+            return Response(status=400)
+
+        dp = self.dpset.get(int(dpid))
+
+        if dp is None:
+            return Response(status=404)
+
+        _ofp_version = dp.ofproto.OFP_VERSION
+
+        _ofctl = supported_ofctl.get(_ofp_version, None)
+        if _ofctl is not None:
+            flows = _ofctl.get_flow_desc(dp, self.waiters, flow)
+
+        else:
+            LOG.debug('Unsupported OF protocol')
+            return Response(status=501)
+
+        body = json.dumps(flows)
+        return Response(content_type='application/json', body=body)
+
     def get_aggregate_flow_stats(self, req, dpid, **_kwargs):
 
         if req.body == '':
@@ -865,6 +901,11 @@ class RestStatsApi(app_manager.RyuApp):
         uri = path + '/flow/{dpid}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='get_flow_stats',
+                       conditions=dict(method=['GET', 'POST']))
+
+        uri = path + '/flowdesc/{dpid}'
+        mapper.connect('stats', uri,
+                       controller=StatsController, action='get_flow_desc',
                        conditions=dict(method=['GET', 'POST']))
 
         uri = path + '/aggregateflow/{dpid}'

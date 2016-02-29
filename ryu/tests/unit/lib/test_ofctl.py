@@ -426,11 +426,16 @@ def _add_tests():
                 'method': ofctl_v1_5.get_queue_desc_stats,
                 'request': 'libofproto-OFP15-queue_desc_request.packet.json',
                 'reply': 'libofproto-OFP15-queue_desc_reply.packet.json'
-                        },
+            },
             {
                 'method': ofctl_v1_5.get_flow_stats,
                 'request': 'libofproto-OFP15-flow_stats_request.packet.json',
                 'reply': 'libofproto-OFP15-flow_stats_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.get_flow_desc,
+                'request': 'libofproto-OFP15-flow_desc_request.packet.json',
+                'reply': 'libofproto-OFP15-flow_desc_reply.packet.json'
             },
             {
                 'method': ofctl_v1_5.get_aggregate_flow_stats,
@@ -508,11 +513,11 @@ def _add_tests():
                 'request': 'libofproto-OFP15-port_mod.packet.json',
                 'reply': None
             },
-            #           {
-            #           'method': ofctl_v1_5.send_experimenter,
-            #           'request': 'libofproto-OFP15-experimenter.packet.json',
-            #           'reply': None
-            #           }
+                       {
+                       'method': ofctl_v1_5.send_experimenter,
+                       'request': 'libofproto-OFP15-experimenter.packet.json',
+                       'reply': None
+                       }
         ],
     }
 

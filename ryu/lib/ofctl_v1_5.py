@@ -493,8 +493,39 @@ def get_flow_stats(dp, waiters, flow=None):
 
     return flows
 
-# TODO
-# def get_flow_desc(dp, waiters, flow=None):
+
+def get_flow_desc(dp, waiters, flow=None):
+    flow = flow if flow else {}
+    table_id = UTIL.ofp_table_from_user(
+        flow.get('table_id', dp.ofproto.OFPTT_ALL))
+    flags = int(flow.get('flags', 0))
+    out_port = UTIL.ofp_port_from_user(
+        flow.get('out_port', dp.ofproto.OFPP_ANY))
+    out_group = UTIL.ofp_group_from_user(
+        flow.get('out_group', dp.ofproto.OFPG_ANY))
+    cookie = int(flow.get('cookie', 0))
+    cookie_mask = int(flow.get('cookie_mask', 0))
+    match = to_match(dp, flow.get('match', {}))
+
+    stats = dp.ofproto_parser.OFPFlowDescStatsRequest(
+        dp, flags, table_id, out_port, out_group, cookie, cookie_mask,
+        match)
+
+    msgs = []
+    send_stats_request(dp, stats, waiters, msgs)
+
+    flows = []
+    for msg in msgs:
+        for stats in msg.body:
+            s = stats.to_jsondict()[stats.__class__.__name__]
+            s['instructions'] = instructions_to_str(stats.instructions)
+            s['stats'] = stats_to_str(stats.stats)
+            s['match'] = match_to_str(stats.match)
+            flows.append(s)
+    flows = {str(dp.id): flows}
+
+    return flows
+
 
 def get_aggregate_flow_stats(dp, waiters, flow=None):
     flow = flow if flow else {}
