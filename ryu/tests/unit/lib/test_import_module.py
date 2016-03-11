@@ -19,9 +19,11 @@ from nose.tools import eq_
 
 from ryu.utils import import_module
 import ryu.tests.unit.lib.test_mod.fuga.mod
+import sys
 
 
 class Test_import_module(unittest.TestCase):
+
     """ Test case for ryu.utils.import_module
     """
 
@@ -44,28 +46,39 @@ class Test_import_module(unittest.TestCase):
         eq_("this is fuga", fuga.name)
         hoge = import_module('ryu.tests.unit.lib.test_mod.hoge.mod')
         eq_("this is hoge", hoge.name)
+        foo = import_module('ryu.tests.unit.lib.test_mod.foo.mod')
+        eq_("this is foo", foo.name)
+        # unimport module forcely
+        sys.modules.pop('ryu.tests.unit.lib.test_mod.fuga.mod')
+        sys.modules.pop('ryu.tests.unit.lib.test_mod.hoge.mod')
+        sys.modules.pop('ryu.tests.unit.lib.test_mod.foo.mod')
 
     def test_import_module_by_filename(self):
         fuga = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga.name)
-        hoge = import_module('./lib/test_mod/hoge/mod.py')
-        eq_("this is hoge", hoge.name)
+        # unimport module forcely
+        sys.modules.pop('mod')
 
     def test_import_same_module1(self):
-        fuga1 = import_module('./lib/test_mod/fuga/mod.py')
-        eq_("this is fuga", fuga1.name)
-        eq_(ryu.tests.unit.lib.test_mod.fuga.mod, fuga1)
+        fuga1 = import_module('ryu.tests.unit.lib.test_mod.fuga.mod')
+        fuga2 = import_module('./lib/test_mod/fuga/mod.py')
+        eq_(fuga1.name, fuga2.name)
+        # unimport module forcely
+        sys.modules.pop('ryu.tests.unit.lib.test_mod.fuga.mod')
+        sys.modules.pop('mod')
 
     def test_import_same_module2(self):
         fuga1 = import_module('./lib/test_mod/fuga/mod.py')
-        eq_("this is fuga", fuga1.name)
         fuga2 = import_module('ryu.tests.unit.lib.test_mod.fuga.mod')
-        eq_("this is fuga", fuga2.name)
-        eq_(fuga1, fuga2)
+        eq_(fuga1.name, fuga2.name)
+        # unimport module forcely
+        sys.modules.pop('mod')
+        sys.modules.pop('ryu.tests.unit.lib.test_mod.fuga.mod')
 
     def test_import_same_module3(self):
         fuga1 = import_module('./lib/test_mod/fuga/mod.py')
-        eq_("this is fuga", fuga1.name)
         fuga3 = self._my_import('ryu.tests.unit.lib.test_mod.fuga.mod')
-        eq_("this is fuga", fuga3.name)
-        eq_(fuga1, fuga3)
+        eq_(fuga1.name, fuga3.name)
+        # unimport module forcely
+        sys.modules.pop('mod')
+        sys.modules.pop('ryu.tests.unit.lib.test_mod.fuga.mod')
