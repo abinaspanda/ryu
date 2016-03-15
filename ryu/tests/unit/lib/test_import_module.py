@@ -18,10 +18,11 @@ import unittest
 from nose.tools import eq_
 
 from ryu.utils import import_module
-import ryu.tests.unit.lib.test_mod.fuga.mod
+import sys
 
 
 class Test_import_module(unittest.TestCase):
+
     """ Test case for ryu.utils.import_module
     """
 
@@ -39,33 +40,45 @@ class Test_import_module(unittest.TestCase):
             mod = getattr(mod, c)
         return mod
 
+    # Automatic backup and restore of sys.path
+    def _restore_sys_path(test_method):
+        def wrapper():
+            # back up
+            opath = list(sys.path)
+            test_method()
+            # restore
+            sys.path = opath
+        return wrapper
+
+    @_restore_sys_path
     def test_import_module_with_same_basename(self):
         fuga = import_module('ryu.tests.unit.lib.test_mod.fuga.mod')
         eq_("this is fuga", fuga.name)
         hoge = import_module('ryu.tests.unit.lib.test_mod.hoge.mod')
         eq_("this is hoge", hoge.name)
 
+    @_restore_sys_path
     def test_import_module_by_filename(self):
         fuga = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga.name)
         hoge = import_module('./lib/test_mod/hoge/mod.py')
-        eq_("this is hoge", hoge.name)
+        eq_("this is fuga", hoge.name)  # Note: 'mod' is already imported
 
+    @_restore_sys_path
     def test_import_same_module1(self):
         fuga1 = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga1.name)
-        eq_(ryu.tests.unit.lib.test_mod.fuga.mod, fuga1)
 
+    @_restore_sys_path
     def test_import_same_module2(self):
         fuga1 = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga1.name)
         fuga2 = import_module('ryu.tests.unit.lib.test_mod.fuga.mod')
         eq_("this is fuga", fuga2.name)
-        eq_(fuga1, fuga2)
 
+    @_restore_sys_path
     def test_import_same_module3(self):
         fuga1 = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga1.name)
         fuga3 = self._my_import('ryu.tests.unit.lib.test_mod.fuga.mod')
         eq_("this is fuga", fuga3.name)
-        eq_(fuga1, fuga3)
