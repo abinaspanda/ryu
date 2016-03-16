@@ -18,6 +18,9 @@
 import functools
 import unittest
 import logging
+import os
+import sys
+import json
 
 from nose.tools import eq_
 from webob.request import Request
@@ -30,6 +33,10 @@ from routes import Mapper
 from routes.util import URLGenerator
 
 from ryu.ofproto import ofproto_protocol
+from ryu.ofproto import ofproto_v1_0
+from ryu.ofproto import ofproto_v1_2
+from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto import ofproto_v1_4
 from ryu.tests import test_lib
 
 mapper = Mapper()
@@ -46,12 +53,22 @@ class DummyDatapath(ofproto_protocol.ProtocolDesc):
         super(DummyDatapath, self).__init__(version)
         self.id = DPID
         self.request_msg = None
-        self.reply_msg = None
+        self.reply_msg = []
         self.waiters = None
-        port_info = self.ofproto_parser.OFPPort(
-            port_no=1, hw_addr='ce:0f:31:8a:c8:d9', name='s1-eth1',
-            config=1, state=1, curr=2112, advertised=0, supported=0,
-            peer=0, curr_speed=10000000, max_speed=0)
+        if version in [ofproto_v1_0.OFP_VERSION]:
+            port_info = self.ofproto_parser.OFPPhyPort(
+                port_no=1, hw_addr='ce:0f:31:8a:c8:d9', name='s1-eth1',
+                config=1, state=1, curr=2112, advertised=0,
+                supported=0, peer=0)
+        elif version in [ofproto_v1_2.OFP_VERSION, ofproto_v1_3.OFP_VERSION]:
+            port_info = self.ofproto_parser.OFPPort(
+                port_no=1, hw_addr='ce:0f:31:8a:c8:d9', name='s1-eth1',
+                config=1, state=1, curr=2112, advertised=0,
+                supported=0, peer=0, curr_speed=10000000, max_speed=0)
+        else: # OpenFlow1.4 or later
+                port_info = self.ofproto_parser.OFPPort(
+                    config=1, hw_addr='ce:0f:31:8a:c8:d9',
+                    name='s1-eth1', port_no=1, properties=[], state=1)
         self.ports = {1: port_info}
 
     @staticmethod
@@ -63,16 +80,16 @@ class DummyDatapath(ofproto_protocol.ProtocolDesc):
         msg.serialize()
         self.request_msg = msg
 
-        if self.reply_msg:
-            lock, msgs = self.waiters[self.id][msg.xid]
-            msgs.append(self.reply_msg)
+        if self.method == 'GET':
+            lock, msgs = self.waiters[1][0]
+            #msgs.append(self.reply_msg)
             del self.waiters[self.id][msg.xid]
             lock.set()
 
-    def set_reply(self, msg, waiters):
-        self.reply_msg = msg
+    def set_waiters(self, waiters, method):
+        assert self.waiters is None
         self.waiters = waiters
-
+        self.method = method
 
 class Test_ofctl_rest(unittest.TestCase):
 
@@ -88,6 +105,8 @@ class Test_ofctl_rest(unittest.TestCase):
 
     def _test(self, name, dp, method, path, args, body):
         print('processing %s ...' % name)
+        waiters = {}
+        dp.set_waiters(waiters, method)
 
         # set static values
         r = Request.blank('')
@@ -96,16 +115,31 @@ class Test_ofctl_rest(unittest.TestCase):
         d['dpset']._register(dp)
 
         # get a method of ofctl_rest
-        dic = self.args['wsgi'].mapper.match(path, {'REQUEST_METHOD': method})
+        dic = self.args['wsgi'].mapper.match(
+            path, {'REQUEST_METHOD': method})
         controller = dic['controller'](r, l, d)
+
+        # override the value of waiters
+        controller.waiters = waiters
+
+        # get a method of controller
         action = dic['action']
-        method = getattr(controller, action)
+        func = getattr(controller, action)
 
         # run the method
         req = Request.blank('')
-        req.body = body
-        reply = method(req, **args)
+        req.body = str(body)
 
+        import time
+        start = time.time()
+        reply = func(req, **args)
+        elapsed_time = time.time() - start
+        if elapsed_time > 1:
+            print "-----------"
+            print path
+            print method
+            print ("elapsed_time:{0}".format(elapsed_time)) + "[sec]"
+            print "-----------"
         # eq
         eq_(reply.status, '200 OK')
 
@@ -116,225 +150,45 @@ def _add_tests():
         'of12': 0x03,
         'of13': 0x04,
         'of14': 0x05,
-        'of15': 0x06,
+        #'of15': 0x06,
     }
 
-    _test_cases = {
-        'of13': [
-                {
-                    'method': 'GET',
-                    'path': '/stats/switches',
-                    'args': {}
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/desc/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/flow/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/flow/{dpid}',
-                    'args': {'dpid': DPID},
-                    'body': '',
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/aggregateflow/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/aggregateflow/{dpid}',
-                    'args': {'dpid': DPID},
-                    'body': '',
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/table/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/tablefeatures/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/port/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/queue/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/queueconfig/{dpid}/{port}',
-                    'args': {'dpid': DPID, 'port': PORT},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/meterfeatures/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/meterconfig/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/meter/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/groupfeatures/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/groupdesc/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/group/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'GET',
-                    'path': '/stats/portdesc/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/flowentry/{cmd}',
-                    'args': {'cmd': 'add'},
-                    'body': '{"dpid": 1,"cookie": 1,"cookie_mask": 1,\
-                        "table_id": 0,"idle_timeout": 30,\
-                        "hard_timeout": 30,"priority": 11111,"flags": 1,\
-                        "match":{"in_port":1},"actions":[{"type":"OUTPUT","port": 2}]}',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/flowentry/{cmd}',
-                    'args': {'cmd': 'modify'},
-                    'body': '{"dpid": 1,"cookie": 1,"cookie_mask": 1,\
-                        "table_id": 0,"idle_timeout": 30,\
-                        "hard_timeout": 30,"priority": 11111,"flags": 1,\
-                        "match":{"in_port":1},"actions":[{"type":"OUTPUT","port": 2}]}',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/flowentry/{cmd}',
-                    'args': {'cmd': 'modify_strict'},
-                    'body': '{"dpid": 1,"cookie": 1,"cookie_mask": 1,\
-                        "table_id": 0,"idle_timeout": 30,\
-                        "hard_timeout": 30,"priority": 11111,"flags": 1,\
-                        "match":{"in_port":1},"actions":[{"type":"OUTPUT","port": 2}]}',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/flowentry/{cmd}',
-                    'args': {'cmd': 'delete'},
-                    'body': '{"dpid": 1,"cookie": 1,"cookie_mask": 1,\
-                        "table_id": 0,"idle_timeout": 30,\
-                        "hard_timeout": 30,"priority": 11111,"flags": 1,\
-                        "match":{"in_port":1},"actions":[{"type":"OUTPUT","port": 2}]}',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/flowentry/{cmd}',
-                    'args': {'cmd': 'delete_strict'},
-                    'body': '{"dpid": 1,"cookie": 1,"cookie_mask": 1,\
-                        "table_id": 0,"idle_timeout": 30,\
-                        "hard_timeout": 30,"priority": 11111,"flags": 1,\
-                        "match":{"in_port":1},"actions":[{"type":"OUTPUT","port": 2}]}',
-                },
-                {
-                    'method': 'DELETE',
-                    'path': '/stats/flowentry/clear/{dpid}',
-                    'args': {'dpid': DPID},
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/meterentry/{cmd}',
-                    'args': {'cmd': 'add'},
-                    'body': '{"dpid": 1,"flags": "KBPS","meter_id": 1,\
-                            "bands": [{"type": "DROP","rate": 1000}]\
-                            }',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/meterentry/{cmd}',
-                    'args': {'cmd': 'modify'},
-                    'body': '{"dpid": 1,"flags": "KBPS","meter_id": 1,\
-                            "bands": [{"type": "DROP","rate": 1000}]\
-                            }',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/meterentry/{cmd}',
-                    'args': {'cmd': 'delete'},
-                    'body': '{"dpid": 1,"flags": "KBPS","meter_id": 1,\
-                            "bands": [{"type": "DROP","rate": 1000}]\
-                            }',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/groupentry/{cmd}',
-                    'args': {'cmd': 'add'},
-                    'body': '[{"actions": [{"type": "OUTPUT","port": 1}]}]',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/groupentry/{cmd}',
-                    'args': {'cmd': 'modify'},
-                    'body': '[{"actions": [{"type": "OUTPUT","port": 1}]}]',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/groupentry/{cmd}',
-                    'args': {'cmd': 'delete'},
-                    'body': '{"dpid": 1,"group_id": 1}',
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/portdesc/{cmd}',
-                    'args': {'cmd': 'modify'},
-                    'body': '{"dpid": 1, "port_no": 1,"config": 1,"mask": 1}'
+    this_dir = os.path.dirname(sys.modules[__name__].__file__)
+    ofctl_rest_json_root = os.path.join(this_dir, 'ofctl_rest_json/')
 
-                },
-                {
-                    'method': 'POST',
-                    'path': '/stats/experimenter/{dpid}',
-                    'args': {'dpid': DPID},
-                    'body': '{"dpid": 1,\
-                        "experimenter": 1,"exp_type": 1,\
-                        "data_type": "ascii","data": "data"\
-                            }',
-                },
-        ]
-    }
+    for ofp_ver, val in _ofp_vers.items():
+        ofctl_rest_json_dir = os.path.join(ofctl_rest_json_root, ofp_ver)
 
-    for ofp_ver, tests in _test_cases.items():
-        dp = DummyDatapath(_ofp_vers[ofp_ver])
-        for test in tests:
-            name = 'test_ofctl_rest_' + ofp_ver + '_' + test['path']
+        # read a json file
+        json_path = os.path.join(ofctl_rest_json_dir, 'test.json')
+        if os.path.exists(json_path):
+            _test_cases = json.load(open(json_path))
+
+        # add test
+        for test in _test_cases:
+
+            # create request body
+            if test['method'] in ['POST', 'PUT', 'DELETE']:
+                body = str(test.get('body', {"dpid": 1}))
+            else:
+                body = ''
+
+            # create func name
+            path = test['path']
+            cmd = test['args'].get('cmd', None)
+            if cmd:
+                path = path.replace('cmd', 'cmd=' + str(cmd))
+            name = 'test_ofctl_rest_' + ofp_ver + '_' + path
+
+            # adding method
             print('adding %s ...' % name)
             f = functools.partial(
-                Test_ofctl_rest._test, name=name, dp=dp,
+                Test_ofctl_rest._test, name=name,
+                dp=DummyDatapath(_ofp_vers[ofp_ver]),
                 method=test['method'],
                 path=test['path'],
                 args=test['args'],
-                body=test.get('body', '')
+                body=body
             )
             test_lib.add_method(Test_ofctl_rest, name, f)
 
