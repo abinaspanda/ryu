@@ -44,6 +44,7 @@ class Test_import_module(unittest.TestCase):
     def _unimport_module(name):
         removed_mod = sys.modules.pop(name, None)
         assert None != removed_mod
+        assert name not in sys.modules
 
     def test_import_module_with_same_basename(self):
         fuga = import_module('ryu.tests.unit.lib.test_mod.fuga.mod')
