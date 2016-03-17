@@ -40,49 +40,45 @@ class Test_import_module(unittest.TestCase):
             mod = getattr(mod, c)
         return mod
 
-    @staticmethod
-    def _unimport_module(name):
-        removed_mod = sys.modules.pop(name, None)
-        assert None != removed_mod
-        assert name not in sys.modules
+    # Automatic backup and restore of sys.path
+    def _restore_sys_path(test_method):
+        def wrapper():
+            # back up
+            opath = list(sys.path)
+            test_method()
+            # restore
+            sys.path = opath
+        return wrapper
 
+    @_restore_sys_path
     def test_import_module_with_same_basename(self):
         fuga = import_module('ryu.tests.unit.lib.test_mod.fuga.mod')
         eq_("this is fuga", fuga.name)
         hoge = import_module('ryu.tests.unit.lib.test_mod.hoge.mod')
         eq_("this is hoge", hoge.name)
-        # unimport module forcely
-        self._unimport_module('ryu.tests.unit.lib.test_mod.fuga.mod')
-        self._unimport_module('ryu.tests.unit.lib.test_mod.hoge.mod')
 
+    @_restore_sys_path
     def test_import_module_by_filename(self):
         fuga = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga.name)
         hoge = import_module('./lib/test_mod/hoge/mod.py')
         eq_("this is fuga", hoge.name)  # Note: 'mod' is already imported
-        # unimport module forcely
-        self._unimport_module('mod')
 
+    @_restore_sys_path
     def test_import_same_module1(self):
         fuga1 = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga1.name)
-        # unimport module forcely
-        self._unimport_module('mod')
 
+    @_restore_sys_path
     def test_import_same_module2(self):
         fuga1 = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga1.name)
         fuga2 = import_module('ryu.tests.unit.lib.test_mod.fuga.mod')
         eq_("this is fuga", fuga2.name)
-        # unimport module forcely
-        self._unimport_module('ryu.tests.unit.lib.test_mod.fuga.mod')
-        self._unimport_module('mod')
 
+    @_restore_sys_path
     def test_import_same_module3(self):
         fuga1 = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga1.name)
         fuga3 = self._my_import('ryu.tests.unit.lib.test_mod.fuga.mod')
         eq_("this is fuga", fuga3.name)
-        # unimport module forcely
-        sys.modules.pop('mod')
-        sys.modules.pop('ryu.tests.unit.lib.test_mod.fuga.mod')
