@@ -89,8 +89,7 @@ class DummyDatapath(ofproto_protocol.ProtocolDesc):
         msg.serialize()
         self.request_msg = msg
 
-        if self.method == 'GET' or
-           self.path in POST_PATH_LIST:
+        if self.method == 'GET' or self.path in POST_PATH_LIST:
             lock, msgs = self.waiters[DPID][XID]
             del self.waiters[self.id][msg.xid]
             lock.set()
@@ -174,6 +173,7 @@ class Test_ofctl_rest(unittest.TestCase):
         else:
             pass
 
+
 def _add_tests():
 
     _ofp_vers = {
@@ -209,7 +209,8 @@ def _add_tests():
             cmd = test['args'].get('cmd', None)
             if cmd:
                 path = path.replace('cmd', 'cmd=' + str(cmd))
-            name = 'test_ofctl_rest_' + test['method'] + '_' + ofp_ver + '_' + path
+            name = 'test_ofctl_rest_' + \
+                test['method'] + '_' + ofp_ver + '_' + path
 
             # adding test method
             print('adding %s ...' % name)
