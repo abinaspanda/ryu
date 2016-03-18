@@ -28,10 +28,12 @@ from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ofproto_v1_4
+from ryu.ofproto import ofproto_v1_5
 from ryu.lib import ofctl_v1_0
 from ryu.lib import ofctl_v1_2
 from ryu.lib import ofctl_v1_3
 from ryu.lib import ofctl_v1_4
+from ryu.lib import ofctl_v1_5
 from ryu.app.wsgi import ControllerBase, WSGIApplication
 
 
@@ -43,6 +45,7 @@ supported_ofctl = {
     ofproto_v1_2.OFP_VERSION: ofctl_v1_2,
     ofproto_v1_3.OFP_VERSION: ofctl_v1_3,
     ofproto_v1_4.OFP_VERSION: ofctl_v1_4,
+    ofproto_v1_5.OFP_VERSION: ofctl_v1_5,
 }
 
 # REST API
@@ -55,6 +58,12 @@ supported_ofctl = {
 #
 # get the desc stats of the switch
 # GET /stats/desc/<dpid>
+#
+# get flows desc stats of the switch
+# GET /stats/flowdesc/<dpid>
+#
+# get flows desc stats of the switch filtered by the fields
+# POST /stats/flowdesc/<dpid>
 #
 # get flows stats of the switch
 # GET /stats/flow/<dpid>
@@ -91,6 +100,9 @@ supported_ofctl = {
 #
 # get meter config stats of the switch
 # GET /stats/meterconfig/<dpid>
+#
+# get meter desc stats of the switch
+# GET /stats/meterdesc/<dpid>/<meter>
 #
 # get meters stats of the switch
 # GET /stats/meter/<dpid>
@@ -185,6 +197,42 @@ class StatsController(ControllerBase):
             return Response(status=501)
 
         body = json.dumps(desc)
+        return Response(content_type='application/json', body=body)
+
+    def get_flow_desc(self, req, dpid, **_kwargs):
+
+        if req.body == '':
+            flow = {}
+
+        else:
+
+            try:
+                flow = ast.literal_eval(req.body)
+
+            except SyntaxError:
+                LOG.debug('invalid syntax %s', req.body)
+                return Response(status=400)
+
+        if type(dpid) == str and not dpid.isdigit():
+            LOG.debug('invalid dpid %s', dpid)
+            return Response(status=400)
+
+        dp = self.dpset.get(int(dpid))
+
+        if dp is None:
+            return Response(status=404)
+
+        _ofp_version = dp.ofproto.OFP_VERSION
+
+        _ofctl = supported_ofctl.get(_ofp_version, None)
+        if _ofctl is not None:
+            flows = _ofctl.get_flow_desc_stats(dp, self.waiters, flow)
+
+        else:
+            LOG.debug('Unsupported OF protocol')
+            return Response(status=501)
+
+        body = json.dumps(flows)
         return Response(content_type='application/json', body=body)
 
     def get_flow_stats(self, req, dpid, **_kwargs):
@@ -457,6 +505,31 @@ class StatsController(ControllerBase):
 
         if _ofctl is not None and hasattr(_ofctl, 'get_meter_config'):
             meters = _ofctl.get_meter_config(dp, self.waiters)
+
+        else:
+            LOG.debug('Unsupported OF protocol or \
+                request not supported in this OF protocol version')
+            return Response(status=501)
+
+        body = json.dumps(meters)
+        return Response(content_type='application/json', body=body)
+
+    def get_meter_desc(self, req, dpid, **_kwargs):
+
+        if type(dpid) == str and not dpid.isdigit():
+            LOG.debug('invalid dpid %s', dpid)
+            return Response(status=400)
+
+        dp = self.dpset.get(int(dpid))
+
+        if dp is None:
+            return Response(status=404)
+
+        _ofp_version = dp.ofproto.OFP_VERSION
+        _ofctl = supported_ofctl.get(_ofp_version, None)
+
+        if _ofctl is not None and hasattr(_ofctl, 'get_meter_desc'):
+            meters = _ofctl.get_meter_desc(dp, self.waiters)
 
         else:
             LOG.debug('Unsupported OF protocol or \
@@ -830,7 +903,8 @@ class RestStatsApi(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION,
                     ofproto_v1_2.OFP_VERSION,
                     ofproto_v1_3.OFP_VERSION,
-                    ofproto_v1_4.OFP_VERSION]
+                    ofproto_v1_4.OFP_VERSION,
+                    ofproto_v1_5.OFP_VERSION]
     _CONTEXTS = {
         'dpset': dpset.DPSet,
         'wsgi': WSGIApplication
@@ -857,6 +931,11 @@ class RestStatsApi(app_manager.RyuApp):
         mapper.connect('stats', uri,
                        controller=StatsController, action='get_desc_stats',
                        conditions=dict(method=['GET']))
+
+        uri = path + '/flowdesc/{dpid}'
+        mapper.connect('stats', uri,
+                       controller=StatsController, action='get_flow_desc',
+                       conditions=dict(method=['GET', 'POST']))
 
         uri = path + '/flow/{dpid}'
         mapper.connect('stats', uri,
@@ -907,6 +986,11 @@ class RestStatsApi(app_manager.RyuApp):
         uri = path + '/meterconfig/{dpid}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='get_meter_config',
+                       conditions=dict(method=['GET']))
+
+        uri = path + '/meterdesc/{dpid}/{meter}'
+        mapper.connect('stats', uri,
+                       controller=StatsController, action='get_meter_desc',
                        conditions=dict(method=['GET']))
 
         uri = path + '/meter/{dpid}'
