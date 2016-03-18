@@ -46,6 +46,11 @@ DPID = 1
 PORT = 1
 QUEUE = 1
 
+# Specify request message path which use POST method
+POST_PATH_LIST = [
+    '/stats/flow/{dpid}',
+    '/stats/aggregateflow/{dpid}'
+    ]
 
 class DummyDatapath(ofproto_protocol.ProtocolDesc):
 
@@ -83,16 +88,17 @@ class DummyDatapath(ofproto_protocol.ProtocolDesc):
         msg.serialize()
         self.request_msg = msg
 
-        if self.method == 'GET':
+        if self.method == 'GET' or self.path in POST_PATH_LIST:
             lock, msgs = self.waiters[1][0]
             #msgs.append(self.reply_msg)
             del self.waiters[self.id][msg.xid]
             lock.set()
 
-    def set_waiters(self, waiters, method):
+    def set_waiters(self, waiters, method, path):
         assert self.waiters is None
         self.waiters = waiters
         self.method = method
+        self.path = path
 
 class Test_ofctl_rest(unittest.TestCase):
 
@@ -109,7 +115,7 @@ class Test_ofctl_rest(unittest.TestCase):
     def _test(self, name, dp, method, path, args, body):
         print('processing %s ...' % name)
         waiters = {}
-        dp.set_waiters(waiters, method)
+        dp.set_waiters(waiters, method, path)
 
         # set static values
         r = Request.blank('')
@@ -118,7 +124,6 @@ class Test_ofctl_rest(unittest.TestCase):
         d['dpset']._register(dp)
 
         # get a method of ofctl_rest
-        print method
         dic = self.args['wsgi'].mapper.match(
             path, {'REQUEST_METHOD': method})
         if dic is None:
@@ -135,17 +140,8 @@ class Test_ofctl_rest(unittest.TestCase):
         # run the method
         req = Request.blank('')
         req.body = str(body)
-
-        import time
-        start = time.time()
         reply = func(req, **args)
-        elapsed_time = time.time() - start
-        if elapsed_time > 1:
-            print "-----------"
-            print path
-            print method
-            print ("elapsed_time:{0}".format(elapsed_time)) + "[sec]"
-            print "-----------"
+
         # eq
         eq_(reply.status, '200 OK')
 
