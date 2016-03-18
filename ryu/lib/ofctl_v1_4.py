@@ -522,7 +522,8 @@ def get_table_features(dp, waiters):
                            ofproto.OFPTFPT_INSTRUCTIONS_MISS]
 
     p_type_next_tables = [ofproto.OFPTFPT_NEXT_TABLES,
-                          ofproto.OFPTFPT_NEXT_TABLES_MISS]
+                          ofproto.OFPTFPT_NEXT_TABLES_MISS,
+                          ofproto.OFPTFPT_TABLE_SYNC_FROM]
 
     p_type_actions = [ofproto.OFPTFPT_WRITE_ACTIONS,
                       ofproto.OFPTFPT_WRITE_ACTIONS_MISS,
@@ -584,9 +585,14 @@ def get_table_features(dp, waiters):
     return desc
 
 
-def get_port_stats(dp, waiters):
+def get_port_stats(dp, waiters, port=None):
+    if port is None:
+        port = dp.ofproto.OFPP_ANY
+    else:
+        port = int(str(port), 0)
+
     stats = dp.ofproto_parser.OFPPortStatsRequest(
-        dp, 0, dp.ofproto.OFPP_ANY)
+        dp, 0, port)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -606,9 +612,14 @@ def get_port_stats(dp, waiters):
     return ports
 
 
-def get_meter_stats(dp, waiters):
+def get_meter_stats(dp, waiters, meter_id=None):
+    if meter_id is None:
+        meter_id = dp.ofproto.OFPM_ALL
+    else:
+        meter_id = int(str(meter_id), 0)
+
     stats = dp.ofproto_parser.OFPMeterStatsRequest(
-        dp, 0, dp.ofproto.OFPM_ALL)
+        dp, 0, meter_id)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -661,14 +672,19 @@ def get_meter_features(dp, waiters):
     return features
 
 
-def get_meter_config(dp, waiters):
+def get_meter_config(dp, waiters, meter_id=None):
     flags = {dp.ofproto.OFPMF_KBPS: 'KBPS',
              dp.ofproto.OFPMF_PKTPS: 'PKTPS',
              dp.ofproto.OFPMF_BURST: 'BURST',
              dp.ofproto.OFPMF_STATS: 'STATS'}
 
+    if meter_id is None:
+        meter_id = dp.ofproto.OFPM_ALL
+    else:
+        meter_id = int(str(meter_id), 0)
+
     stats = dp.ofproto_parser.OFPMeterConfigStatsRequest(
-        dp, 0, dp.ofproto.OFPM_ALL)
+        dp, 0, meter_id)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -693,9 +709,14 @@ def get_meter_config(dp, waiters):
     return configs
 
 
-def get_group_stats(dp, waiters):
+def get_group_stats(dp, waiters, group_id=None):
+    if group_id is None:
+        group_id = dp.ofproto.OFPG_ALL
+    else:
+        group_id = int(str(group_id), 0)
+
     stats = dp.ofproto_parser.OFPGroupStatsRequest(
-        dp, 0, dp.ofproto.OFPG_ALL)
+        dp, 0, group_id)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
