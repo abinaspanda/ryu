@@ -513,9 +513,9 @@ def _add_tests():
                 'reply': None
             },
             {
-                 'method': ofctl_v1_5.send_experimenter,
-                 'request': 'libofproto-OFP15-experimenter.packet.json',
-                 'reply': None
+                'method': ofctl_v1_5.send_experimenter,
+                'request': 'libofproto-OFP15-experimenter.packet.json',
+                'reply': None
             }
         ],
     }
