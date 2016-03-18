@@ -56,28 +56,29 @@ class DummyDatapath(ofproto_protocol.ProtocolDesc):
 
     def __init__(self, version):
         super(DummyDatapath, self).__init__(version)
+        print self
         self.id = DPID
         self.request_msg = None
         self.reply_msg = []
         self.waiters = None
-        # OpenFlow1.0
+
+        _kw= {'port_no': DPID,
+        'hw_addr': 'ce:0f:31:8a:c8:d9', 'name': 's1-eth1',
+        'config':1, 'state':1}
+        # for OpenFlow1.0
         if version in [ofproto_v1_0.OFP_VERSION]:
-            port_info = self.ofproto_parser.OFPPhyPort(
-                port_no=1, hw_addr='ce:0f:31:8a:c8:d9', name='s1-eth1',
-                config=1, state=1, curr=2112, advertised=0,
-                supported=0, peer=0)
-        # OpenFlow1.2 or 1.2
+            _kw.update({'curr':2112, 'advertised':0, 'supported':0, 'peer':0})
+            port_info = self.ofproto_parser.OFPPhyPort(**_kw)
+        # for OpenFlow1.2 or 1.2
         elif version in [ofproto_v1_2.OFP_VERSION, ofproto_v1_3.OFP_VERSION]:
-            port_info = self.ofproto_parser.OFPPort(
-                port_no=1, hw_addr='ce:0f:31:8a:c8:d9', name='s1-eth1',
-                config=1, state=1, curr=2112, advertised=0,
-                supported=0, peer=0, curr_speed=10000000, max_speed=0)
-        # OpenFlow1.4 or later
+            _kw.update({'curr':2112, 'advertised':0, 'supported':0, 'peer':0,
+                       'curr_speed':10000000, 'max_speed':0})
+            port_info = self.ofproto_parser.OFPPort(**_kw)
+        # for OpenFlow1.4 or later
         else:
-                port_info = self.ofproto_parser.OFPPort(
-                    config=1, hw_addr='ce:0f:31:8a:c8:d9',
-                    name='s1-eth1', port_no=1, properties=[], state=1)
-        self.ports = {1: port_info}
+            _kw.update({'properties':[]})
+            port_info = self.ofproto_parser.OFPPort(**_kw)
+        self.ports = {DPID: port_info}
 
     @staticmethod
     def set_xid(msg):
@@ -127,7 +128,7 @@ class Test_ofctl_rest(unittest.TestCase):
         dic = self.args['wsgi'].mapper.match(
             path, {'REQUEST_METHOD': method})
         if dic is None:
-            LOG.error("path of %s is not specified", path)
+            raise Exception("\"%s %s\" is not implemented" % (method, path))
         controller = dic['controller'](r, l, d)
 
         # override the value of waiters
