@@ -1,0 +1,245 @@
+[
+    {
+        "args": {},
+        "method": "GET",
+        "path": "/stats/switches"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/desc/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/flowdesc/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "POST",
+        "path": "/stats/flowdesc/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/flow/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "POST",
+        "path": "/stats/flow/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/aggregateflow/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "POST",
+        "path": "/stats/aggregateflow/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/table/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/tablefeatures/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/port/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/queue/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1,
+            "port": 1,
+            "queue": 1
+        },
+        "method": "GET",
+        "path": "/stats/queuedesc/{dpid}/{port}/{queue}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/meterfeatures/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1,
+            "meter": 1
+        },
+        "method": "GET",
+        "path": "/stats/meterdesc/{dpid}/{meter}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/meter/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/groupfeatures/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/groupdesc/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/group/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/portdesc/{dpid}"
+    },
+    {
+        "args": {
+            "cmd": "add"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "modify"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "modify_strict"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "delete"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "delete_strict"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "DELETE",
+        "path": "/stats/flowentry/clear/{dpid}"
+    },
+    {
+        "args": {
+            "cmd": "add"
+        },
+        "method": "POST",
+        "path": "/stats/meterentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "modify"
+        },
+        "method": "POST",
+        "path": "/stats/meterentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "delete"
+        },
+        "method": "POST",
+        "path": "/stats/meterentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "add"
+        },
+        "method": "POST",
+        "path": "/stats/groupentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "modify"
+        },
+        "method": "POST",
+        "path": "/stats/groupentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "delete"
+        },
+        "method": "POST",
+        "path": "/stats/groupentry/{cmd}"
+    },
+    {
+        "body": {
+            "dpid": 1,
+            "port_no": 1
+        },
+        "args": {
+            "cmd": "modify"
+        },
+        "method": "POST",
+        "path": "/stats/portdesc/{cmd}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "POST",
+        "path": "/stats/experimenter/{dpid}"
+    }
+]

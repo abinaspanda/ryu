@@ -1,0 +1,123 @@
+[
+    {
+        "args": {},
+        "method": "GET",
+        "path": "/stats/switches"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/desc/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/flow/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "POST",
+        "path": "/stats/flow/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/aggregateflow/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "POST",
+        "path": "/stats/aggregateflow/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/table/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/port/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/queue/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/portdesc/{dpid}"
+    },
+    {
+        "args": {
+            "cmd": "add"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "modify"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "modify_strict"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "delete"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "cmd": "delete_strict"
+        },
+        "method": "POST",
+        "path": "/stats/flowentry/{cmd}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "DELETE",
+        "path": "/stats/flowentry/clear/{dpid}"
+    },
+    {
+        "body": {
+            "dpid": 1,
+            "port_no": 1
+        },
+        "args": {
+            "cmd": "modify"
+        },
+        "method": "POST",
+        "path": "/stats/portdesc/{cmd}"
+    }
+]
