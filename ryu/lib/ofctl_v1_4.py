@@ -416,8 +416,7 @@ def get_queue_desc_stats(dp, waiters, port_no=None, queue_id=None):
 
     configs = []
     for msg in msgs:
-        queues = msg.body
-        for queue in queues:
+        for queue in msg.body:
             q = queue.to_jsondict()[queue.__class__.__name__]
             prop_list = []
             for prop in queue.properties:
