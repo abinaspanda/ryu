@@ -29,7 +29,7 @@ LOG = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 1.0
 
-UTIL = ofctl_utils.OFCtlUtil(ofproto_v1_4)
+UTIL = ofctl_utils.OFCtlUtil(ofproto_v1_5)
 
 
 def to_action(dp, dic):
@@ -81,10 +81,14 @@ def to_action(dp, dic):
         ethertype = int(dic.get('ethertype'))
         action = parser.OFPActionPushPbb(ethertype)
     elif action_type == 'POP_PBB':
-        result = parser.OFPActionPopPbb()
-#    TODO
-#    elif action_type == 'COPY_FIELD':
-
+        action = parser.OFPActionPopPbb()
+    elif action_type == 'COPY_FIELD':
+        # TODO
+        n_bits = int(dic.get('n_bits'))
+        src_offset = int(dic.get('src_offset'))
+        ethertype = int(dic.get('dst_offset'))
+        # oxm_ids = xxx
+        # action = parser.OFPActionCopyField(n_bits, src_offset, ethertype, oxm_ids)
     elif action_type == 'EXPERIMENTER':
         experimenter = int(dic.get('experimenter'))
         data_type = dic.get('data_type', 'ascii')
@@ -93,9 +97,8 @@ def to_action(dp, dic):
         data = dic.get('data', '')
         if data_type == 'base64':
             data = base64.b64decode(data)
-        action = parser.OFPActionExperimenter(experimenter, data)
+        action = parser.OFPActionExperimenterUnknown(experimenter, data)
     elif action_type == 'METER':
-        # TODO?
         meter_id = int(dic.get('meter_id'))
         action = parser.OFPActionMeter(meter_id)
     else:
@@ -148,9 +151,6 @@ def to_instructions(dp, insts):
             instructions.append(
                 parser.OFPInstructionWriteMetadata(
                     metadata, metadata_mask))
-        elif inst_type == 'METER':
-            meter_id = int(i.get('meter_id'))
-            instructions.append(parser.OFPInstructionMeter(meter_id))
         else:
             LOG.error('Unknown instruction type: %s', inst_type)
 
@@ -168,7 +168,6 @@ def action_to_str(act):
         s['mask'] = field['OXMTlv']['mask']
         s['value'] = field['OXMTlv']['value']
 
-    # TODO COPY FIELD??
     return s
 
 
@@ -195,7 +194,7 @@ def instructions_to_str(instructions):
         t = UTIL.ofp_instruction_type_to_user(v['type'])
         inst_type = t if t != v['type'] else 'UNKNOWN'
         # apply/write/clear-action instruction
-        if isinstance(i, ofproto_v1_4_parser.OFPInstructionActions):
+        if isinstance(i, ofproto_v1_5_parser.OFPInstructionActions):
             acts = []
             for a in i.actions:
                 acts.append(action_to_str(a))
@@ -490,8 +489,39 @@ def get_flow_stats(dp, waiters, flow=None):
     for msg in msgs:
         for stats in msg.body:
             s = stats.to_jsondict()[stats.__class__.__name__]
-            #TODO
-            #s['instructions'] = instructions_to_str(stats.instructions)
+            s['stats'] = stats_to_str(stats.stats)
+            s['match'] = match_to_str(stats.match)
+            flows.append(s)
+    flows = {str(dp.id): flows}
+
+    return flows
+
+
+def get_flow_desc_stats(dp, waiters, flow=None):
+    flow = flow if flow else {}
+    table_id = UTIL.ofp_table_from_user(
+        flow.get('table_id', dp.ofproto.OFPTT_ALL))
+    flags = int(flow.get('flags', 0))
+    out_port = UTIL.ofp_port_from_user(
+        flow.get('out_port', dp.ofproto.OFPP_ANY))
+    out_group = UTIL.ofp_group_from_user(
+        flow.get('out_group', dp.ofproto.OFPG_ANY))
+    cookie = int(flow.get('cookie', 0))
+    cookie_mask = int(flow.get('cookie_mask', 0))
+    match = to_match(dp, flow.get('match', {}))
+
+    stats = dp.ofproto_parser.OFPFlowDescStatsRequest(
+        dp, flags, table_id, out_port, out_group, cookie, cookie_mask,
+        match)
+
+    msgs = []
+    send_stats_request(dp, stats, waiters, msgs)
+
+    flows = []
+    for msg in msgs:
+        for stats in msg.body:
+            s = stats.to_jsondict()[stats.__class__.__name__]
+            s['instructions'] = instructions_to_str(stats.instructions)
             s['stats'] = stats_to_str(stats.stats)
             s['match'] = match_to_str(stats.match)
             flows.append(s)
@@ -524,6 +554,7 @@ def get_aggregate_flow_stats(dp, waiters, flow=None):
     for msg in msgs:
         stats = msg.body
         s = stats.to_jsondict()[stats.__class__.__name__]
+        s['stats'] = stats_to_str(stats.stats)
         flows.append(s)
     flows = {str(dp.id): flows}
 
@@ -556,19 +587,26 @@ def get_table_features(dp, waiters):
                            ofproto.OFPTFPT_INSTRUCTIONS_MISS]
 
     p_type_next_tables = [ofproto.OFPTFPT_NEXT_TABLES,
-                          ofproto.OFPTFPT_NEXT_TABLES_MISS]
+                          ofproto.OFPTFPT_NEXT_TABLES_MISS,
+                          ofproto.OFPTFPT_TABLE_SYNC_FROM]
 
     p_type_actions = [ofproto.OFPTFPT_WRITE_ACTIONS,
                       ofproto.OFPTFPT_WRITE_ACTIONS_MISS,
                       ofproto.OFPTFPT_APPLY_ACTIONS,
                       ofproto.OFPTFPT_APPLY_ACTIONS_MISS]
 
+    p_type_packet = ofproto.OFPTFPT_PACKET_TYPES
+
     p_type_oxms = [ofproto.OFPTFPT_MATCH,
                    ofproto.OFPTFPT_WILDCARDS,
                    ofproto.OFPTFPT_WRITE_SETFIELD,
                    ofproto.OFPTFPT_WRITE_SETFIELD_MISS,
                    ofproto.OFPTFPT_APPLY_SETFIELD,
-                   ofproto.OFPTFPT_APPLY_SETFIELD_MISS]
+                   ofproto.OFPTFPT_APPLY_SETFIELD_MISS,
+                   ofproto.OFPTFPT_WRITE_COPYFIELD,
+                   ofproto.OFPTFPT_WRITE_COPYFIELD_MISS,
+                   ofproto.OFPTFPT_APPLY_COPYFIELD,
+                   ofproto.OFPTFPT_APPLY_COPYFIELD_MISS]
 
     p_type_experimenter = [ofproto.OFPTFPT_EXPERIMENTER,
                            ofproto.OFPTFPT_EXPERIMENTER_MISS]
@@ -607,6 +645,12 @@ def get_table_features(dp, waiters):
                         i = id.to_jsondict()[id.__class__.__name__]
                         oxm_ids.append(i)
                     p['oxm_ids'] = oxm_ids
+                elif prop.type == p_type_packet:
+                    oxm_values = []
+                    for val in prop.oxm_values:
+                        i = {val[0]: val[1]}
+                        oxm_values.append(i)
+                    p['oxm_values'] = oxm_values
                 elif prop.type in p_type_experimenter:
                     pass
                 properties.append(p)
@@ -618,9 +662,14 @@ def get_table_features(dp, waiters):
     return desc
 
 
-def get_port_stats(dp, waiters):
+def get_port_stats(dp, waiters, port=None):
+    if port is None:
+        port = dp.ofproto.OFPP_ANY
+    else:
+        port = int(str(port), 0)
+
     stats = dp.ofproto_parser.OFPPortStatsRequest(
-        dp, 0, dp.ofproto.OFPP_ANY)
+        dp, 0, port)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -640,9 +689,14 @@ def get_port_stats(dp, waiters):
     return ports
 
 
-def get_meter_stats(dp, waiters):
+def get_meter_stats(dp, waiters, meter_id=None):
+    if meter_id is None:
+        meter_id = dp.ofproto.OFPM_ALL
+    else:
+        meter_id = int(str(meter_id), 0)
+
     stats = dp.ofproto_parser.OFPMeterStatsRequest(
-        dp, 0, dp.ofproto.OFPM_ALL)
+        dp, 0, meter_id)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -695,14 +749,19 @@ def get_meter_features(dp, waiters):
     return features
 
 
-def get_meter_config(dp, waiters):
+def get_meter_desc(dp, waiters, meter_id=None):
     flags = {dp.ofproto.OFPMF_KBPS: 'KBPS',
              dp.ofproto.OFPMF_PKTPS: 'PKTPS',
              dp.ofproto.OFPMF_BURST: 'BURST',
              dp.ofproto.OFPMF_STATS: 'STATS'}
 
-    stats = dp.ofproto_parser.OFPMeterConfigStatsRequest(
-        dp, 0, dp.ofproto.OFPM_ALL)
+    if meter_id is None:
+        meter_id = dp.ofproto.OFPM_ALL
+    else:
+        meter_id = int(str(meter_id), 0)
+
+    stats = dp.ofproto_parser.OFPMeterDescStatsRequest(
+        dp, 0, meter_id)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -717,7 +776,7 @@ def get_meter_config(dp, waiters):
                 b['type'] = t if t != band.type else 'UNKNOWN'
                 bands.append(b)
             c_flags = []
-            for k, v in flags.items():
+            for k, v in sorted(flags.items()):
                 if k & config.flags:
                     c_flags.append(v)
             c['flags'] = c_flags
@@ -727,9 +786,14 @@ def get_meter_config(dp, waiters):
     return configs
 
 
-def get_group_stats(dp, waiters):
+def get_group_stats(dp, waiters, group_id=None):
+    if group_id is None:
+        group_id = dp.ofproto.OFPG_ALL
+    else:
+        group_id = int(str(group_id), 0)
+
     stats = dp.ofproto_parser.OFPGroupStatsRequest(
-        dp, 0, dp.ofproto.OFPG_ALL)
+        dp, 0, group_id)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -774,6 +838,8 @@ def get_group_features(dp, waiters):
                    ofp.OFPAT_SET_FIELD: 'SET_FIELD',
                    ofp.OFPAT_PUSH_PBB: 'PUSH_PBB',
                    ofp.OFPAT_POP_PBB: 'POP_PBB',
+                   ofp.OFPAT_COPY_FIELD: 'COPY_FIELD',
+                   ofp.OFPAT_METER: 'METER',
                    ofp.OFPAT_EXPERIMENTER: 'EXPERIMENTER',
                    }
 
@@ -811,8 +877,12 @@ def get_group_features(dp, waiters):
     return features
 
 
-def get_group_desc(dp, waiters):
-    stats = dp.ofproto_parser.OFPGroupDescStatsRequest(dp, 0)
+def get_group_desc(dp, waiters, group_id=None):
+    if group_id is None:
+        group_id = dp.ofproto.OFPG_ALL
+    else:
+        group_id = int(str(group_id), 0)
+    stats = dp.ofproto_parser.OFPGroupDescStatsRequest(dp, 0, group_id)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -826,19 +896,30 @@ def get_group_desc(dp, waiters):
                 actions = []
                 for action in bucket.actions:
                     actions.append(action_to_str(action))
+                properties = []
+                for prop in bucket.properties:
+                    p = prop.to_jsondict()[prop.__class__.__name__]
+                    t = UTIL.ofp_group_bucket_prop_type_to_user(prop.type)
+                    p['type'] = t if t != prop.type else 'UNKNOWN'
+                    properties.append(p)
                 b['actions'] = actions
+                b['properties'] = properties
                 buckets.append(b)
             t = UTIL.ofp_group_type_to_user(stats.type)
             d['type'] = t if t != stats.type else 'UNKNOWN'
             d['buckets'] = buckets
+
             descs.append(d)
     descs = {str(dp.id): descs}
     return descs
 
-"""
 
-def get_port_desc(dp, waiters):
-    stats = dp.ofproto_parser.OFPPortDescStatsRequest(dp, 0)
+def get_port_desc(dp, waiters, port_no=None):
+    if port_no is None:
+        port_no = dp.ofproto.OFPP_ANY
+    else:
+        port_no = int(str(port_no), 0)
+    stats = dp.ofproto_parser.OFPPortDescStatsRequest(dp, 0, port_no)
     msgs = []
     send_stats_request(dp, stats, waiters, msgs)
 
@@ -886,10 +967,8 @@ def mod_flow_entry(dp, flow, cmd):
 
     dp.send_msg(flow_mod)
 
-"""
 
 def mod_meter_entry(dp, meter, cmd):
-
     flags = 0
     if 'flags' in meter:
         meter_flags = meter['flags']
@@ -935,24 +1014,20 @@ def mod_group_entry(dp, group, cmd):
     ofp = dp.ofproto
     parser = dp.ofproto_parser
 
-    # TODO name edit
-    type_convert = {'ALL': ofp.OFPGT_ALL,
-                    'SELECT': ofp.OFPGT_SELECT,
-                    'INDIRECT': ofp.OFPGT_INDIRECT,
-                    'FF': ofp.OFPGT_FF}
-
-    prop_type_convert = {'WEIGHT': ofp.OFPGBPT_WEIGHT,
-                         'WATCH_PORT': ofp.OFPGBPT_WATCH_PORT,
-                         'WATCH_GROUP': ofp.OFPGBPT_WATCH_GROUP,
-                         'EXPERIMENTER': ofp.OFPGBPT_EXPERIMENTER}
-
-    type_ = type_convert.get(group.get('type', 'ALL'))
-    if type_ is None:
+    group_type = str(group.get('type', 'ALL'))
+    t = UTIL.ofp_group_type_from_user(group_type)
+    group_type = t if t != group_type else None
+    if group_type is None:
         LOG.error('Unknown group type: %s', group.get('type'))
 
-    group_id = int(group.get('group_id', 0))
+    group_id = UTIL.ofp_group_from_user(group.get('group_id', 0))
     command_bucket_id = int(group.get('command_bucket_id', 0))
-    properties = group.get('properties', [])  # TODO
+
+    # Note:
+    # The list of group property types that are currently defined
+    # are only OFPGPT_EXPERIMENTER(Experimenter defined).
+    properties = []
+
     buckets = []
     for bucket in group.get('buckets', []):
 
@@ -969,27 +1044,32 @@ def mod_group_entry(dp, group, cmd):
         # get properties in buckets
         bucket_properties = []
         for p in bucket.get('properties', []):
-            type__ = prop_type_convert.get(p.get('type', 'WEIGHT'))
-            if type__ == ofp.OFPGBPT_WEIGHT:
-                weight = p['weight']
-                m = parser.OFPGroupBucketPropWeight(type_=type__,
+            group_bp_type = str(p.get('type', 'WEIGHT'))
+            t = UTIL.ofp_group_bucket_prop_type_from_user(group_bp_type)
+            group_bp_type = t if t != group_bp_type else ofp.OFPGBPT_WEIGHT
+
+            if group_bp_type == ofp.OFPGBPT_WEIGHT:
+                weight = int(p.get('weight', 0))
+                m = parser.OFPGroupBucketPropWeight(type_=group_bp_type,
                                                     weight=weight)
-            elif type__ in [ofp.OFPGBPT_WATCH_PORT,
-                            ofp.OFPGBPT_WATCH_GROUP]:
-                watch = p['watch']
-                m = parser.OFPGroupBucketPropWatch(type_=type__,
-                                                   watch=watch)
-            elif type__ == ofp.OFPGBPT_EXPERIMENTER:
-                # TODO test
+            elif group_bp_type == ofp.OFPGBPT_WATCH_PORT:
+                watch_port = int(p.get('watch', dp.ofproto.OFPP_ANY))
+                m = parser.OFPGroupBucketPropWatch(type_=group_bp_type,
+                                                   watch=watch_port)
+            elif group_bp_type == ofp.OFPGBPT_WATCH_GROUP:
+                watch_group = int(p.get('watch', dp.ofproto.OFPG_ANY))
+                m = parser.OFPGroupBucketPropWatch(type_=group_bp_type,
+                                                   watch=watch_group)
+            elif group_bp_type == ofp.OFPGBPT_EXPERIMENTER:
                 experimenter = p.get('experimenter', 0)
                 exp_type = p.get('exp_type', 0)
                 data_type = p.get('data_type', 'ascii')
-                if data_type != 'ascii' and data_type != 'base64':
+                if data_type not in ['ascii', 'base64']:
                     LOG.error('Unknown data type: %s', data_type)
                 data = p.get('data', '')
                 if data_type == 'base64':
                     data = base64.b64decode(data)
-                m = parser.OFPGroupBucketPropExperimenter(type_=type__,
+                m = parser.OFPGroupBucketPropExperimenter(type_=group_bp_type,
                                                           experimenter=experimenter,
                                                           exp_type=exp_type,
                                                           data=data)
@@ -1003,7 +1083,7 @@ def mod_group_entry(dp, group, cmd):
                                   properties=bucket_properties)
         buckets.append(bucket)
 
-    group_mod = parser.OFPGroupMod(dp, cmd, type_, group_id,
+    group_mod = parser.OFPGroupMod(dp, cmd, group_type, group_id,
                                    command_bucket_id, buckets,
                                    properties)
 
