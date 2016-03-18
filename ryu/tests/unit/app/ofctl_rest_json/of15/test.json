@@ -16,6 +16,20 @@
             "dpid": 1
         },
         "method": "GET",
+        "path": "/stats/flowdesc/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "POST",
+        "path": "/stats/flowdesc/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
         "path": "/stats/flow/{dpid}"
     },
     {

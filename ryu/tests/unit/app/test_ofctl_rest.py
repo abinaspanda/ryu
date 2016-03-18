@@ -36,7 +36,6 @@ from ryu.ofproto import ofproto_protocol
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
-from ryu.ofproto import ofproto_v1_4
 from ryu.tests import test_lib
 
 mapper = Mapper()
@@ -45,53 +44,54 @@ LOG = logging.getLogger(__name__)
 DPID = 1
 PORT = 1
 QUEUE = 1
+XID = 0
 
 # Specify request message path which use POST method
 POST_PATH_LIST = [
     '/stats/flow/{dpid}',
-    '/stats/aggregateflow/{dpid}'
-    ]
+    '/stats/aggregateflow/{dpid}',
+    '/stats/flowdesc/{dpid}'
+]
+
 
 class DummyDatapath(ofproto_protocol.ProtocolDesc):
 
     def __init__(self, version):
         super(DummyDatapath, self).__init__(version)
-        print self
         self.id = DPID
         self.request_msg = None
-        self.reply_msg = []
         self.waiters = None
-
-        _kw= {'port_no': DPID,
-        'hw_addr': 'ce:0f:31:8a:c8:d9', 'name': 's1-eth1',
-        'config':1, 'state':1}
+        _kw = {'port_no': DPID, 'hw_addr': 'ce:0f:31:8a:c8:d9',
+               'name': 's1-eth1', 'config': 1, 'state': 1}
         # for OpenFlow1.0
         if version in [ofproto_v1_0.OFP_VERSION]:
-            _kw.update({'curr':2112, 'advertised':0, 'supported':0, 'peer':0})
+            _kw.update(
+                {'curr': 2112, 'advertised': 0, 'supported': 0, 'peer': 0})
             port_info = self.ofproto_parser.OFPPhyPort(**_kw)
         # for OpenFlow1.2 or 1.2
         elif version in [ofproto_v1_2.OFP_VERSION, ofproto_v1_3.OFP_VERSION]:
-            _kw.update({'curr':2112, 'advertised':0, 'supported':0, 'peer':0,
-                       'curr_speed':10000000, 'max_speed':0})
+            _kw.update(
+                {'curr': 2112, 'advertised': 0, 'supported': 0, 'peer': 0,
+                 'curr_speed': 10000000, 'max_speed': 0})
             port_info = self.ofproto_parser.OFPPort(**_kw)
         # for OpenFlow1.4 or later
         else:
-            _kw.update({'properties':[]})
+            _kw.update({'properties': []})
             port_info = self.ofproto_parser.OFPPort(**_kw)
         self.ports = {DPID: port_info}
 
     @staticmethod
     def set_xid(msg):
-        msg.set_xid(0)
-        return 0
+        msg.set_xid(XID)
+        return XID
 
     def send_msg(self, msg):
         msg.serialize()
         self.request_msg = msg
 
-        if self.method == 'GET' or self.path in POST_PATH_LIST:
-            lock, msgs = self.waiters[1][0]
-            #msgs.append(self.reply_msg)
+        if self.method == 'GET' or
+           self.path in POST_PATH_LIST:
+            lock, msgs = self.waiters[DPID][XID]
             del self.waiters[self.id][msg.xid]
             lock.set()
 
@@ -101,14 +101,15 @@ class DummyDatapath(ofproto_protocol.ProtocolDesc):
         self.method = method
         self.path = path
 
+
 class Test_ofctl_rest(unittest.TestCase):
 
     def setUp(self):
-        self.args = {
+        self._contexts = {
             'dpset': dpset.DPSet(),
             'wsgi': WSGIApplication()
         }
-        self.ofctl_rest_app = ofctl_rest.RestStatsApi(**self.args)
+        self.ofctl_rest_app = ofctl_rest.RestStatsApi(**self._contexts)
 
     def tearDown(self):
         pass
@@ -125,13 +126,11 @@ class Test_ofctl_rest(unittest.TestCase):
         d['dpset']._register(dp)
 
         # get a method of ofctl_rest
-        dic = self.args['wsgi'].mapper.match(
+        dic = self._contexts['wsgi'].mapper.match(
             path, {'REQUEST_METHOD': method})
         if dic is None:
             raise Exception("\"%s %s\" is not implemented" % (method, path))
         controller = dic['controller'](r, l, d)
-
-        # override the value of waiters
         controller.waiters = waiters
 
         # get a method of controller
@@ -140,12 +139,40 @@ class Test_ofctl_rest(unittest.TestCase):
 
         # run the method
         req = Request.blank('')
-        req.body = str(body)
-        reply = func(req, **args)
 
-        # eq
-        eq_(reply.status, '200 OK')
+        # test 1
+        if body:
+            req.body = str(body)
+        else:
+            req.body = ''
+        res = func(req, **args)
+        eq_(res.status, '200 OK')
 
+        # test 2
+        if args.get('dpid', None):
+            args['dpid'] = 99
+            res = func(req, **args)
+            eq_(res.status, '404 Not Found')
+        elif body and body.get('dpid', None):
+            body['dpid'] = 99
+            req.body = str(body)
+            res = func(req, **args)
+            eq_(res.status, '404 Not Found')
+        else:
+            pass
+
+        # test 3
+        if args.get('dpid', None):
+            args['dpid'] = "hoge"
+            res = func(req, **args)
+            eq_(res.status, '400 Bad Request')
+        elif body and body.get('dpid', None):
+            body['dpid'] = "hoge"
+            req.body = str(body)
+            res = func(req, **args)
+            eq_(res.status, '400 Bad Request')
+        else:
+            pass
 
 def _add_tests():
 
@@ -160,7 +187,7 @@ def _add_tests():
     this_dir = os.path.dirname(sys.modules[__name__].__file__)
     ofctl_rest_json_root = os.path.join(this_dir, 'ofctl_rest_json/')
 
-    for ofp_ver, val in _ofp_vers.items():
+    for ofp_ver in _ofp_vers.keys():
         ofctl_rest_json_dir = os.path.join(ofctl_rest_json_root, ofp_ver)
 
         # read a json file
@@ -173,18 +200,18 @@ def _add_tests():
 
             # create request body
             if test['method'] in ['POST', 'PUT', 'DELETE']:
-                body = str(test.get('body', {"dpid": DPID}))
+                body = test.get('body', {"dpid": DPID})
             else:
-                body = ''
+                body = None
 
             # create func name
             path = test['path']
             cmd = test['args'].get('cmd', None)
             if cmd:
                 path = path.replace('cmd', 'cmd=' + str(cmd))
-            name = 'test_ofctl_rest_' + ofp_ver + '_' + path
+            name = 'test_ofctl_rest_' + test['method'] + '_' + ofp_ver + '_' + path
 
-            # adding method
+            # adding test method
             print('adding %s ...' % name)
             f = functools.partial(
                 Test_ofctl_rest._test, name=name,
