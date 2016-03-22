@@ -838,9 +838,13 @@ class StatsController(ControllerBase):
             LOG.debug('invalid port_no %s', port_no)
             return Response(status=400)
 
+        dp = self.dpset.get(int(dpid))
+
+        if dp is None:
+            return Response(status=404)
+
         port_info = self.dpset.port_state[int(dpid)].get(port_no)
 
-        dp = self.dpset.get(int(dpid))
         _ofp_version = dp.ofproto.OFP_VERSION
 
         if port_info:
@@ -850,9 +854,6 @@ class StatsController(ControllerBase):
             else:
                 port_config.setdefault('advertise', port_info.advertised)
         else:
-            return Response(status=404)
-
-        if dp is None:
             return Response(status=404)
 
         if cmd != 'modify':

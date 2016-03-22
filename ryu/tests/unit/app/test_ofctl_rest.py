@@ -139,13 +139,39 @@ class Test_ofctl_rest(unittest.TestCase):
         # run the method
         req = Request.blank('')
 
-        # test
+        # test 1
         if body:
             req.body = str(body)
         else:
             req.body = ''
         res = func(req, **args)
         eq_(res.status, '200 OK')
+
+        # test 2
+        if args.get('dpid', None):
+            args['dpid'] = 99
+            res = func(req, **args)
+            eq_(res.status, '404 Not Found')
+        elif body and body.get('dpid', None):
+            body['dpid'] = 99
+            req.body = str(body)
+            res = func(req, **args)
+            eq_(res.status, '404 Not Found')
+        else:
+            pass
+
+        # test 3
+        if args.get('dpid', None):
+            args['dpid'] = "hoge"
+            res = func(req, **args)
+            eq_(res.status, '400 Bad Request')
+        elif body and body.get('dpid', None):
+            body['dpid'] = "hoge"
+            req.body = str(body)
+            res = func(req, **args)
+            eq_(res.status, '400 Bad Request')
+        else:
+            pass
 
 
 def _add_tests():
