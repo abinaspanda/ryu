@@ -154,7 +154,8 @@ def _add_tests():
         'of10': 0x01,
         'of12': 0x03,
         'of13': 0x04,
-        'of14': 0x05
+        'of14': 0x05,
+        'of15': 0x06
     }
 
     this_dir = os.path.dirname(sys.modules[__name__].__file__)
