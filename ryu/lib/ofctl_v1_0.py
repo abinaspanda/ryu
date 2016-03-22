@@ -397,12 +397,11 @@ def get_aggregate_flow_stats(dp, waiters, flow=None):
     flows = []
     for msg in msgs:
         stats = msg.body
-        s = {}
         for st in stats:
             s = {'packet_count': st.packet_count,
                  'byte_count': st.byte_count,
                  'flow_count': st.flow_count}
-        flows.append(s)
+            flows.append(s)
     flows = {str(dp.id): flows}
 
     return flows
