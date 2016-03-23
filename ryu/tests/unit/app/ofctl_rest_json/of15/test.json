@@ -76,10 +76,44 @@
     },
     {
         "args": {
+            "dpid": 1,
+            "port": 1
+        },
+        "method": "GET",
+        "path": "/stats/port/{dpid}/{port}"
+    },
+    {
+        "args": {
             "dpid": 1
         },
         "method": "GET",
         "path": "/stats/queue/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1,
+            "port": 1
+        },
+        "method": "GET",
+        "path": "/stats/queue/{dpid}/{port}"
+    },
+    {
+        "args": {
+            "dpid": 1,
+            "port": 1,
+            "queue": 1
+        },
+        "method": "GET",
+        "path": "/stats/queue/{dpid}/{port}/{queue}"
+    },
+    {
+        "args": {
+            "dpid": 1,
+            "port": "ALL",
+            "queue": 1
+        },
+        "method": "GET",
+        "path": "/stats/queue/{dpid}/{port}/{queue}"
     },
     {
         "args": {
@@ -114,6 +148,14 @@
     },
     {
         "args": {
+            "dpid": 1,
+            "meter": 1
+        },
+        "method": "GET",
+        "path": "/stats/meter/{dpid}/{meter}"
+    },
+    {
+        "args": {
             "dpid": 1
         },
         "method": "GET",
@@ -132,6 +174,14 @@
         },
         "method": "GET",
         "path": "/stats/group/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1,
+            "group": 1
+        },
+        "method": "GET",
+        "path": "/stats/group/{dpid}/{group}"
     },
     {
         "args": {
