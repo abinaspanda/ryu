@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import unittest
+from test import test_support
 from nose.tools import eq_
 
 from ryu.utils import import_module
@@ -41,17 +42,19 @@ class Test_import_module(unittest.TestCase):
         return mod
 
     @staticmethod
-    def _unimport_module(name):
-        removed_mod = sys.modules.pop(name, None)
-        assert None != removed_mod
-        assert name not in sys.modules
+    def _unimport_module(module_name):
+        # Remove the module named module_name from sys.modules
+        # and delete any byte-compiled files of the module.
+        assert module_name in sys.modules
+        test_support.forget(module_name)
+        assert module_name not in sys.modules
 
     def test_import_module_with_same_basename(self):
         fuga = import_module('ryu.tests.unit.lib.test_mod.fuga.mod')
         eq_("this is fuga", fuga.name)
         hoge = import_module('ryu.tests.unit.lib.test_mod.hoge.mod')
         eq_("this is hoge", hoge.name)
-        # unimport module forcely
+        # unimport module
         self._unimport_module('ryu.tests.unit.lib.test_mod.fuga.mod')
         self._unimport_module('ryu.tests.unit.lib.test_mod.hoge.mod')
 
@@ -60,13 +63,13 @@ class Test_import_module(unittest.TestCase):
         eq_("this is fuga", fuga.name)
         hoge = import_module('./lib/test_mod/hoge/mod.py')
         eq_("this is fuga", hoge.name)  # Note: 'mod' is already imported
-        # unimport module forcely
+        # unimport module
         self._unimport_module('mod')
 
     def test_import_same_module1(self):
         fuga1 = import_module('./lib/test_mod/fuga/mod.py')
         eq_("this is fuga", fuga1.name)
-        # unimport module forcely
+        # unimport module
         self._unimport_module('mod')
 
     def test_import_same_module2(self):
@@ -74,7 +77,7 @@ class Test_import_module(unittest.TestCase):
         eq_("this is fuga", fuga1.name)
         fuga2 = import_module('ryu.tests.unit.lib.test_mod.fuga.mod')
         eq_("this is fuga", fuga2.name)
-        # unimport module forcely
+        # unimport module
         self._unimport_module('ryu.tests.unit.lib.test_mod.fuga.mod')
         self._unimport_module('mod')
 
@@ -83,6 +86,6 @@ class Test_import_module(unittest.TestCase):
         eq_("this is fuga", fuga1.name)
         fuga3 = self._my_import('ryu.tests.unit.lib.test_mod.fuga.mod')
         eq_("this is fuga", fuga3.name)
-        # unimport module forcely
-        sys.modules.pop('mod')
-        sys.modules.pop('ryu.tests.unit.lib.test_mod.fuga.mod')
+        # unimport module
+        self._unimport_module('mod')
+        self._unimport_module('ryu.tests.unit.lib.test_mod.fuga.mod')
