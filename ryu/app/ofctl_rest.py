@@ -456,23 +456,27 @@ class StatsController(ControllerBase):
         body = json.dumps(queues)
         return Response(content_type='application/json', body=body)
 
-    def get_queue_desc(self, req, dpid, port, queue, **_kwargs):
+    def get_queue_desc(self, req, dpid, port=None, queue=None, **_kwargs):
 
         if type(dpid) == str and not dpid.isdigit():
             LOG.debug('invalid dpid %s', dpid)
             return Response(status=400)
 
+        if port == "ALL":
+            port = None
+
         if type(port) == str and not port.isdigit():
             LOG.debug('invalid port %s', port)
             return Response(status=400)
+
+        if queue == "ALL":
+            queue = None
 
         if type(queue) == str and not queue.isdigit():
             LOG.debug('invalid queue %s', queue)
             return Response(status=400)
 
         dp = self.dpset.get(int(dpid))
-        port = int(port)
-        queue = int(queue)
 
         if dp is None:
             return Response(status=404)
@@ -544,10 +548,14 @@ class StatsController(ControllerBase):
         body = json.dumps(meters)
         return Response(content_type='application/json', body=body)
 
-    def get_meter_desc(self, req, dpid, **_kwargs):
+    def get_meter_desc(self, req, dpid, meter_id=None, **_kwargs):
 
         if type(dpid) == str and not dpid.isdigit():
             LOG.debug('invalid dpid %s', dpid)
+            return Response(status=400)
+
+        if type(meter_id) == str and not meter_id.isdigit():
+            LOG.debug('invalid meter_id %s', memter_id)
             return Response(status=400)
 
         dp = self.dpset.get(int(dpid))
@@ -559,7 +567,7 @@ class StatsController(ControllerBase):
         _ofctl = supported_ofctl.get(_ofp_version, None)
 
         if _ofctl is not None and hasattr(_ofctl, 'get_meter_desc'):
-            meters = _ofctl.get_meter_desc(dp, self.waiters)
+            meters = _ofctl.get_meter_desc(dp, self.waiters, meter_id)
 
         else:
             LOG.debug('Unsupported OF protocol or \
@@ -1027,6 +1035,16 @@ class RestStatsApi(app_manager.RyuApp):
                        controller=StatsController, action='get_queue_config',
                        conditions=dict(method=['GET']))
 
+        uri = path + '/queuedesc/{dpid}'
+        mapper.connect('stats', uri,
+                       controller=StatsController, action='get_queue_desc',
+                       conditions=dict(method=['GET']))
+
+        uri = path + '/queuedesc/{dpid}/{port}'
+        mapper.connect('stats', uri,
+                       controller=StatsController, action='get_queue_desc',
+                       conditions=dict(method=['GET']))
+
         uri = path + '/queuedesc/{dpid}/{port}/{queue}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='get_queue_desc',
@@ -1047,7 +1065,12 @@ class RestStatsApi(app_manager.RyuApp):
                        controller=StatsController, action='get_meter_config',
                        conditions=dict(method=['GET']))
 
-        uri = path + '/meterdesc/{dpid}/{meter}'
+        uri = path + '/meterdesc/{dpid}'
+        mapper.connect('stats', uri,
+                       controller=StatsController, action='get_meter_desc',
+                       conditions=dict(method=['GET']))
+
+        uri = path + '/meterdesc/{dpid}/{meter_id}'
         mapper.connect('stats', uri,
                        controller=StatsController, action='get_meter_desc',
                        conditions=dict(method=['GET']))
