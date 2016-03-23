@@ -117,8 +117,32 @@
     },
     {
         "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/queuedesc/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1,
+            "port": 1
+        },
+        "method": "GET",
+        "path": "/stats/queuedesc/{dpid}/{port}"
+    },
+    {
+        "args": {
             "dpid": 1,
             "port": 1,
+            "queue": 1
+        },
+        "method": "GET",
+        "path": "/stats/queuedesc/{dpid}/{port}/{queue}"
+    },
+    {
+        "args": {
+            "dpid": 1,
+            "port": "ALL",
             "queue": 1
         },
         "method": "GET",
@@ -130,6 +154,13 @@
         },
         "method": "GET",
         "path": "/stats/meterfeatures/{dpid}"
+    },
+    {
+        "args": {
+            "dpid": 1
+        },
+        "method": "GET",
+        "path": "/stats/meterdesc/{dpid}"
     },
     {
         "args": {
