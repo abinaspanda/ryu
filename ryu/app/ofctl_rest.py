@@ -215,7 +215,7 @@ class StatsController(ControllerBase):
         else:
 
             try:
-                flow = ast.literal_eval(req.body)
+                flow = ast.literal_eval(req.body.decode('utf-8'))
 
             except SyntaxError:
                 LOG.debug('invalid syntax %s', req.body)
@@ -251,7 +251,7 @@ class StatsController(ControllerBase):
         else:
 
             try:
-                flow = ast.literal_eval(req.body)
+                flow = ast.literal_eval(req.body.decode('utf-8'))
 
             except SyntaxError:
                 LOG.debug('invalid syntax %s', req.body)
@@ -286,7 +286,7 @@ class StatsController(ControllerBase):
 
         else:
             try:
-                flow = ast.literal_eval(req.body)
+                flow = ast.literal_eval(req.body.decode('utf-8'))
 
             except SyntaxError:
                 LOG.debug('invalid syntax %s', req.body)
@@ -712,7 +712,7 @@ class StatsController(ControllerBase):
     def mod_flow_entry(self, req, cmd, **_kwargs):
 
         try:
-            flow = ast.literal_eval(req.body)
+            flow = ast.literal_eval(req.body.decode('utf-8'))
 
         except SyntaxError:
             LOG.debug('invalid syntax %s', req.body)
@@ -783,7 +783,7 @@ class StatsController(ControllerBase):
     def mod_meter_entry(self, req, cmd, **_kwargs):
 
         try:
-            flow = ast.literal_eval(req.body)
+            flow = ast.literal_eval(req.body.decode('utf-8'))
 
         except SyntaxError:
             LOG.debug('invalid syntax %s', req.body)
@@ -825,7 +825,7 @@ class StatsController(ControllerBase):
     def mod_group_entry(self, req, cmd, **_kwargs):
 
         try:
-            group = ast.literal_eval(req.body)
+            group = ast.literal_eval(req.body.decode('utf-8'))
 
         except SyntaxError:
             LOG.debug('invalid syntax %s', req.body)
@@ -867,7 +867,7 @@ class StatsController(ControllerBase):
     def mod_port_behavior(self, req, cmd, **_kwargs):
 
         try:
-            port_config = ast.literal_eval(req.body)
+            port_config = ast.literal_eval(req.body.decode('utf-8'))
 
         except SyntaxError:
             LOG.debug('invalid syntax %s', req.body)
@@ -927,7 +927,7 @@ class StatsController(ControllerBase):
             return Response(status=404)
 
         try:
-            exp = ast.literal_eval(req.body)
+            exp = ast.literal_eval(req.body.decode('utf-8'))
 
         except SyntaxError:
             LOG.debug('invalid syntax %s', req.body)
