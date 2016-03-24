@@ -103,15 +103,6 @@ class DummyDatapath(ofproto_protocol.ProtocolDesc):
 
 class Test_ofctl_rest(unittest.TestCase):
 
-    @staticmethod
-    def dict_to_bytes(dict):
-        if dict:
-            str_ = json.dumps(dict)
-        else:
-            str_ = json.dumps('')
-
-        return str_.encode('utf-8')
-
     def _test(self, name, dp, method, path, args, body):
         print('processing %s ...' % name)
 
@@ -163,37 +154,11 @@ class Test_ofctl_rest(unittest.TestCase):
         # ----------------------------------
 
         req = Request.blank('')
-        req.body = self.dict_to_bytes(body)
+        req.body = body
 
-        # test 1
+        # test
         res = func(req, **args)
         eq_(res.status, '200 OK')
-
-        # test 2
-        if args.get('dpid', None):
-            args['dpid'] = 99
-            res = func(req, **args)
-            eq_(res.status, '404 Not Found')
-        elif body and body.get('dpid', None):
-            body['dpid'] = 99
-            req.body = self.dict_to_bytes(body)
-            res = func(req, **args)
-            eq_(res.status, '404 Not Found')
-        else:
-            pass
-
-        # test 3
-        if args.get('dpid', None):
-            args['dpid'] = "hoge"
-            res = func(req, **args)
-            eq_(res.status, '400 Bad Request')
-        elif body and body.get('dpid', None):
-            body['dpid'] = "hoge"
-            req.body = self.dict_to_bytes(body)
-            res = func(req, **args)
-            eq_(res.status, '400 Bad Request')
-        else:
-            pass
 
 
 def _add_tests():
@@ -220,11 +185,16 @@ def _add_tests():
         # add test
         for test in _test_cases:
 
-            # create request body
+            # create value of body
             if test['method'] in ['POST', 'PUT', 'DELETE']:
-                body = test.get('body', {"dpid": DPID})
+                dic_ = test.get('body', {"dpid": DPID})
+                str_ = json.dumps(dic_)
             else:
-                body = None
+                str_ = json.dumps('')
+
+            body = str_.encode('utf-8')
+
+            assert isinstance(body, bytes)
 
             # create func name
             path = test['path']
