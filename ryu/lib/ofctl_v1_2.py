@@ -955,6 +955,10 @@ def send_experimenter(dp, exp):
     if data_type != 'ascii' and data_type != 'base64':
         LOG.error('Unknown data type: %s', data_type)
     data = exp.get('data', '')
+
+    # for py3
+    data = data.encode('utf-8')
+
     if data_type == 'base64':
         data = base64.b64decode(data)
 

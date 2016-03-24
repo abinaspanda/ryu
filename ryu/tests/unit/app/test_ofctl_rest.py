@@ -103,18 +103,30 @@ class DummyDatapath(ofproto_protocol.ProtocolDesc):
 
 class Test_ofctl_rest(unittest.TestCase):
 
-    def setUp(self):
+    @staticmethod
+    def dict_to_bytes(dict):
+        if dict:
+            str_ = json.dumps(dict)
+        else:
+            str_ = json.dumps('')
+
+        return str_.encode('utf-8')
+
+    def _test(self, name, dp, method, path, args, body):
+        print('processing %s ...' % name)
+
+        # ----------------------------------
+        # 1. Get the function to be tested
+        # ----------------------------------
+
         self._contexts = {
             'dpset': dpset.DPSet(),
             'wsgi': WSGIApplication()
         }
         self.ofctl_rest_app = ofctl_rest.RestStatsApi(**self._contexts)
 
-    def tearDown(self):
-        pass
-
-    def _test(self, name, dp, method, path, args, body):
-        print('processing %s ...' % name)
+        # The following code is to shorten
+        # the test execution time (1)
         waiters = {}
         dp.set_waiters(waiters, method, path)
 
@@ -124,26 +136,36 @@ class Test_ofctl_rest(unittest.TestCase):
         d = self.ofctl_rest_app.data
         d['dpset']._register(dp)
 
-        # get a method of ofctl_rest
+        # ----------------------------------
+        # 2. Get the function to be tested
+        # ----------------------------------
+
         dic = self._contexts['wsgi'].mapper.match(
             path, {'REQUEST_METHOD': method})
         if dic is None:
-            raise Exception("\"%s %s\" is not implemented" % (method, path))
-        controller = dic['controller'](r, l, d)
-        controller.waiters = waiters
+            raise Exception("\"%s %s\" is not implemented" %
+                            (method, path))
 
-        # get a method of controller
-        action = dic['action']
-        func = getattr(controller, action)
+        # create a instance of StatsController class
+        controller_cls = dic['controller']
+        controller_ins = controller_cls(r, l, d)
 
-        # run the method
+        # The following code is to shorten
+        # the test execution time (2)
+        controller_ins.waiters = waiters
+
+        # get a func of StatsController (ex. 'get_flow_stats')
+        func_name = dic['action']
+        func = getattr(controller_ins, func_name)
+
+        # ----------------------------------
+        # 3. Run the tests
+        # ----------------------------------
+
         req = Request.blank('')
+        req.body = self.dict_to_bytes(body)
 
         # test 1
-        if body:
-            req.body = str(body)
-        else:
-            req.body = ''
         res = func(req, **args)
         eq_(res.status, '200 OK')
 
@@ -154,7 +176,7 @@ class Test_ofctl_rest(unittest.TestCase):
             eq_(res.status, '404 Not Found')
         elif body and body.get('dpid', None):
             body['dpid'] = 99
-            req.body = str(body)
+            req.body = self.dict_to_bytes(body)
             res = func(req, **args)
             eq_(res.status, '404 Not Found')
         else:
@@ -167,7 +189,7 @@ class Test_ofctl_rest(unittest.TestCase):
             eq_(res.status, '400 Bad Request')
         elif body and body.get('dpid', None):
             body['dpid'] = "hoge"
-            req.body = str(body)
+            req.body = self.dict_to_bytes(body)
             res = func(req, **args)
             eq_(res.status, '400 Bad Request')
         else:
