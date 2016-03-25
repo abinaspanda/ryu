@@ -483,6 +483,21 @@ def _add_tests():
                 'reply': 'libofproto-OFP15-queue_stats_reply.packet.json'
             },
             {
+                'method': ofctl_v1_5.get_queue_stats,
+                'request': 'lib-ofctl-ofp_queue_stats_request.packet1.json',
+                'reply': 'libofproto-OFP15-queue_stats_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.get_queue_stats,
+                'request': 'lib-ofctl-ofp_queue_stats_request.packet2.json',
+                'reply': 'libofproto-OFP15-queue_stats_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.get_queue_stats,
+                'request': 'lib-ofctl-ofp_queue_stats_request.packet3.json',
+                'reply': 'libofproto-OFP15-queue_stats_reply.packet.json'
+            },
+            {
                 'method': ofctl_v1_5.get_queue_desc_stats,
                 'request': 'libofproto-OFP15-queue_desc_request.packet.json',
                 'reply': 'libofproto-OFP15-queue_desc_reply.packet.json'
@@ -518,8 +533,18 @@ def _add_tests():
                 'reply': 'libofproto-OFP15-port_stats_reply.packet.json'
             },
             {
+                'method': ofctl_v1_5.get_port_stats,
+                'request': 'lib-ofctl-ofp_port_stats_request.packet.json',
+                'reply': 'libofproto-OFP15-port_stats_reply.packet.json'
+            },
+            {
                 'method': ofctl_v1_5.get_meter_stats,
                 'request': 'libofproto-OFP15-meter_stats_request.packet.json',
+                'reply': 'libofproto-OFP15-meter_stats_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.get_meter_stats,
+                'request': 'lib-ofctl-ofp_meter_stats_request.packet.json',
                 'reply': 'libofproto-OFP15-meter_stats_reply.packet.json'
             },
             {
@@ -535,6 +560,11 @@ def _add_tests():
             {
                 'method': ofctl_v1_5.get_group_stats,
                 'request': 'libofproto-OFP15-group_stats_request.packet.json',
+                'reply': 'libofproto-OFP15-group_stats_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_5.get_group_stats,
+                'request': 'lib-ofctl-ofp_group_stats_request.packet.json',
                 'reply': 'libofproto-OFP15-group_stats_reply.packet.json'
             },
             {
