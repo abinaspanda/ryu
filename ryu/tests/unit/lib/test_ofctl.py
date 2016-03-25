@@ -401,6 +401,21 @@ def _add_tests():
                 'reply': '5-64-ofp_queue_desc_reply.packet.json'
             },
             {
+                'method': ofctl_v1_4.get_queue_desc_stats,
+                'request': 'lib-ofctl-ofp_queue_desc_request.packet1.json',
+                'reply': '5-64-ofp_queue_desc_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_4.get_queue_desc_stats,
+                'request': 'lib-ofctl-ofp_queue_desc_request.packet2.json',
+                'reply': '5-64-ofp_queue_desc_reply.packet.json'
+            },
+            {
+                'method': ofctl_v1_4.get_queue_desc_stats,
+                'request': 'lib-ofctl-ofp_queue_desc_request.packet3.json',
+                'reply': '5-64-ofp_queue_desc_reply.packet.json'
+            },
+            {
                 'method': ofctl_v1_4.get_flow_stats,
                 'request': '5-11-ofp_flow_stats_request.packet.json',
                 'reply': '5-12-ofp_flow_stats_reply.packet.json'
